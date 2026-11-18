@@ -1,9 +1,12 @@
 const express = require('express');
+const path = require('path');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-app.get('/', (req, res) => {
-  res.send('<h1>ระบบบันทึกกิจกรรม (Activity Log System)</h1><p>เชื่อมต่อและรันบน Docker สำเร็จ!</p>');
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', app: 'activity-log-app' });
 });
 
 app.listen(port, () => {
