@@ -109,7 +109,7 @@
     parseDate(date);
     const today = parseDate(date);
     const recent = (Array.isArray(workouts) ? workouts : []).filter(item => {
-      if (!item || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(item.date || ''))) return false;
+      if (!item || !/^\d{4}-\d{2}-\d{2}$/.test(String(item.date || ''))) return false;
       try {
         const diff = Math.round((today - parseDate(item.date)) / 86400000);
         return diff >= 0 && diff <= 2;
@@ -131,7 +131,7 @@
       reason: 'ข้อความมีการกล่าวถึงอาการเจ็บปวดหรืออาการผิดปกติ จึงไม่แนะนำให้ฝึกต่อเพื่อความปลอดภัย',
       evidence, suggestions: [], caution: 'หยุดท่าที่กระตุ้นอาการ หากเจ็บรุนแรง เจ็บหน้าอก หายใจลำบาก เวียนศีรษะมาก หรืออาการไม่ดีขึ้น ควรขอคำแนะนำจากบุคลากรทางการแพทย์'
     };
-    if (restToday || (fatigue && recent.length)) return {
+    if (restToday || fatigue) return {
       status: 'recovery', title: 'เลือกพักหรือฟื้นตัวเบา ๆ',
       reason: restToday ? 'คุณระบุว่าวันนี้ต้องการพัก จึงไม่จำเป็นต้องฝืนทำเวท' : 'มีสัญญาณความล้าร่วมกับการฝึกในช่วง 3 วันที่ผ่านมา การเพิ่มความหนักวันนี้อาจไม่เหมาะ',
       evidence, suggestions: [{ name: 'เดินสบาย ๆ', dose: '10–20 นาที เฉพาะเมื่อรู้สึกไหว' }, { name: 'ขยับข้อต่อเบา ๆ', dose: '5 นาที ไม่ฝืนช่วงการเคลื่อนไหว' }],
