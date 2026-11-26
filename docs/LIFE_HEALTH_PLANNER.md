@@ -225,3 +225,39 @@ Open `http://localhost:3000`.
 Health check: `http://localhost:3000/health`.
 
 No database credentials or paid API keys are required for the current prototype.
+
+
+## 10. Implementation update — 2026-11-26
+
+The working-app branch adds a first usable, browser-local implementation beyond the original prototype.
+
+### Implemented in this branch
+
+- Replaced the single inline prototype screen with a responsive Thai-language application shell and separate CSS/JavaScript files.
+- Added date-aware daily activity records with structured start/end times, status values, edit/delete flows, and overlap warnings.
+- Added actual-time entries with date, category, duration, and notes.
+- Added a basic exercise library with instructions, target muscles, sets/repetitions, rest guidance, safety notes, and session logging.
+- Added dated meal entries with serving description, estimated energy/macros, and source labels.
+- Added dated body-measurement history and BMI screening calculation when height is supplied.
+- Added week/month/year report range selection using real calendar boundaries and summaries from recorded data.
+- Added editable nutrition targets, JSON export/import, and local data deletion.
+- Added a dependency-free domain module and Node built-in test cases for date boundaries, duration, overlap detection, summaries, BMI, and legacy-data mapping.
+- Replaced the placeholder `npm test` command with `node --test`.
+
+### Data compatibility and privacy
+
+- New records use the `lhp_v2` localStorage key.
+- Existing `lhp_*` prototype keys are deliberately left untouched. They are not automatically migrated because the old time and meal records may not contain real dates; assigning dates automatically would corrupt historical reporting.
+- Exported JSON is the supported backup mechanism in this branch.
+- No cloud database, account system, external AI, analytics, or paid service is connected.
+
+### Not yet complete / not yet verified
+
+- Browser end-to-end tests, responsive manual QA, and real-device checks have not yet been run.
+- GitHub Actions CI has not yet been verified.
+- Per-occurrence editing for recurring weekly activities, duplication, editing historical time/meal entries, richer charts, and full custom date ranges remain to be implemented.
+- Time-log entries currently store durations rather than start/end intervals, so overlapping actual-time logs cannot yet be detected or de-duplicated.
+- Existing prototype data is preserved but has no guided migration wizard yet.
+- LocalStorage remains device/browser-specific; there is no cross-device sync or authenticated cloud backup.
+
+This update is an incremental working baseline, not a claim that all M0–M7 acceptance criteria are complete.
