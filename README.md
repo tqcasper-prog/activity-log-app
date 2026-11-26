@@ -154,7 +154,7 @@ activity-log-app/
 ### ผู้ช่วยออกกำลังกายด้วย Gemini
 
 - ตั้งค่า `GEMINI_API_KEY` ใน Vercel Project Settings → Environment Variables (ใช้ค่าใน Preview/Production ตาม environment ที่ต้องการ)
-- เลือกใช้ Gemini API Free Tier; ค่าเริ่มต้นคือ `gemini-2.5-flash-lite` และไม่เปิดใช้การเรียกเก็บเงินโดยอัตโนมัติ
+- เลือกใช้ Gemini API Free Tier; ค่าเริ่มต้นคือ `gemini-3.5-flash-lite` และไม่เปิดใช้การเรียกเก็บเงินโดยอัตโนมัติ
 - ห้ามใส่ API key ในไฟล์ JavaScript ฝั่งเว็บหรือ commit ลง Git
 - ข้อมูลที่ส่งไป Gemini จำกัดเฉพาะข้อความสนทนาและประวัติการฝึกที่เกี่ยวข้อง ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ
 - Google ระบุว่าเนื้อหาจาก Free Tier อาจถูกใช้เพื่อปรับปรุงผลิตภัณฑ์ โปรดหลีกเลี่ยงข้อมูลระบุตัวตนและข้อมูลสุขภาพที่ละเอียดอ่อน
