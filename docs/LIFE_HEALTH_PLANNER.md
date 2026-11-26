@@ -274,12 +274,8 @@ This update is an incremental working baseline, not a claim that all M0–M7 acc
 - The coach is not a medical professional and must not diagnose conditions. It should recommend stopping exercise for concerning symptoms and suggest professional care where appropriate.
 - Deployment and live AI verification require a user-created Gemini API key stored as a Vercel environment variable. No API key is committed to the repository.
 
-### Workout planning assistant (2026-11-26)
+### Workout planning assistant — previous local version (2026-11-26)
 
-- The Exercise page includes a conversational local helper. The user can describe today's/yesterday's activity, effort, fatigue, discomfort, or available time in Thai.
-- The helper compares the text with saved exercise sessions from the selected date and the previous two days, identifies a limited set of known movement groups, and suggests a conservative alternative session or recovery.
-- Pain / concerning symptom keywords lead to a rest recommendation; explicit fatigue and recovery cues lead to a lighter recovery recommendation.
-- Each response includes the reason and the saved/text evidence used. The last 16 messages are stored in the same browser-local data record and can be cleared by the user.
-- This is a transparent keyword/rule-based assistant, not a generative AI model. It runs locally, makes no external AI/API calls, and can miss nuanced phrasing or exercises outside its vocabulary.
-- It is not a medical assessment. The user should stop if pain, dizziness, or unusual symptoms occur and seek qualified care when symptoms are severe or persistent.
-- The recommendation engine is covered by unit tests for muscle rotation, recent workout history, pain, full-body sessions, and fatigue.
+- The first implementation used a local keyword/rule-based helper to suggest training or recovery from saved sessions.
+- That local-only conversational implementation has been superseded by the Gemini AI integration described below. The domain rule engine remains in the codebase for offline/reference use, but the Exercise page's chat now calls the server-side Gemini endpoint.
+- The helper is not a medical assessment. Stop if pain, dizziness, or unusual symptoms occur and seek qualified care when symptoms are severe or persistent.
