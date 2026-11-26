@@ -245,7 +245,7 @@
     $('#exercise-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
     $('#coach-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#coach-input').value.trim();if(!text)return alert('กรุณาพิมพ์ข้อความก่อนส่ง');$('#coach-input').value='';askWorkoutCoach(text)});
     $('#coach-history').addEventListener('click',()=>askWorkoutCoach(''));
-    $('#coach-clear').addEventListener('click',()=>{if(confirm('ล้างบทสนทนากับผู้ช่วยออกจากอุปกรณ์นี้หรือไม่?')){data.coachMessages=[];save('ล้างบทสนทนาแล้ว')}});
+    $('#coach-clear').addEventListener('click',clearCoachHistory);
     $('[data-apply-plan]').forEach(b=>b.addEventListener('click',()=>applyWorkoutPlan(Number(b.dataset.applyPlan))));
     $('[data-log-exercise]').forEach(b=>b.addEventListener('click',()=>{$('#exercise-editor').innerHTML=workoutForm(Number(b.dataset.logExercise));bindWorkoutForm(Number(b.dataset.logExercise))}));
     $('[data-delete-workout]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกการฝึกนี้หรือไม่?')){data.workouts=data.workouts.filter(x=>x.id!==b.dataset.deleteWorkout);save()}}));
