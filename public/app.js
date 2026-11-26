@@ -31,14 +31,12 @@
   },0);
   let saveQueue = Promise.resolve();
   function save(message = 'บันทึกข้อมูลแล้ว') {
-    notice = message;
+    notice = 'กำลังบันทึกข้อมูล…';
     render();
     const snapshot = JSON.parse(JSON.stringify(data));
     saveQueue = saveQueue.catch(() => {}).then(() => window.LHPStorage.save(snapshot)).then(result => {
-      if (result && result.fallback) {
-        notice = 'บันทึกแล้ว (โหมดสำรองของเบราว์เซอร์)';
-        render();
-      }
+      notice = result && result.fallback ? message + ' (โหมดสำรองของเบราว์เซอร์)' : message;
+      render();
     }).catch(error => {
       console.error('บันทึกข้อมูลไม่สำเร็จ', error);
       notice = 'บันทึกไม่สำเร็จ กรุณาส่งออกข้อมูลสำรองและตรวจสอบพื้นที่จัดเก็บ';
