@@ -93,6 +93,78 @@
       carbs: Number(x.carb) || 0, fat: Number(x.fat) || 0, source: 'ค่าจากข้อมูลเดิม', confidence: 'estimated', legacy: true }));
     return { activities, logs, meals };
   }
+  const TRAINING_PATTERNS = {
+    push: /วิดพื้น|ดันพื้น|วอลล์?\s*พุช|wall\s*push|push[ -]?up|pushup|อก|ท่าอก|bench\s*press/i,
+    legs: /สควอต|สควอท|squat|ลันจ์|lunge|ขา|ต้นขา|leg\s*day|ขึ้นบันได/i,
+    core: /แพลงก์|plank|เบิร์ดด็อก|bird[ -]?dog|ครันช์|crunch|ซิตอัป|sit[ -]?up|หน้าท้อง|แกนกลาง/i,
+    glutes: /กลูตบริดจ์|glute\s*bridge|สะพานก้น|hip\s*thrust|สะโพก|ก้น/i,
+    cardio: /วิ่ง|เดินเร็ว|เดินเยอะ|ปั่นจักรยาน|ปั่น|cycling|running|jogging|cardio|กระโดดเชือก/i,
+    full: /full[ -]?body|ทั้งตัว|ทั่วร่างกาย|เบอร์พี|burpee|วงจรทั้งตัว/i
+  };
+  function classifyTraining(text) {
+    const value = String(text || '');
+    return Object.keys(TRAINING_PATTERNS).filter(group => TRAINING_PATTERNS[group].test(value));
+  }
+  function recommendWorkout({ date, text = '', workouts = [] } = {}) {
+    parseDate(date);
+    const today = parseDate(date);
+    const recent = (Array.isArray(workouts) ? workouts : []).filter(item => {
+      if (!item || !/^\\d{4}-\\d{2}-\\d{2}$/.test(String(item.date || ''))) return false;
+      try {
+        const diff = Math.round((today - parseDate(item.date)) / 86400000);
+        return diff >= 0 && diff <= 2;
+      } catch { return false; }
+    });
+    const input = String(text || '').replace(/ไม่เจ็บ|ไม่ปวด|ไม่มีอาการเจ็บ|ไม่มีอาการปวด/g, '');
+    const inputGroups = classifyTraining(input);
+    const recentGroups = recent.flatMap(item => classifyTraining([item.exercise, item.notes].filter(Boolean).join(' ')));
+    const trained = [...new Set([...inputGroups, ...recentGroups])];
+    const evidence = [];
+    recent.forEach(item => evidence.push(item.date + ': ' + (item.exercise || 'บันทึกการฝึก')));
+    if (inputGroups.length) evidence.push('ข้อความที่คุณเล่าระบุ: ' + inputGroups.map(group => ({push:'อก/ท่าดัน',legs:'ขา',core:'แกนกลางลำตัว',glutes:'สะโพก',cardio:'คาร์ดิโอ',full:'ทั้งร่างกาย'}[group])).join(', '));
+    const pain = /บาดเจ็บ|เจ็บ|ปวด|เวียนหัว|หน้ามืด|เป็นไข้|มีไข้|ไม่สบาย|เจ็บข้อ|เจ็บหน้าอก/i.test(input);
+    const fatigue = /ล้ามาก|เหนื่อยมาก|หมดแรง|เพลียมาก|นอนไม่พอ|นอนน้อย|พักผ่อนน้อย|หนักมาก|ฟื้นตัวไม่ทัน/i.test(input) ||
+      recent.some(item => ['หนัก','เหนื่อยมาก'].includes(item.effort));
+    const restToday = /วันนี้.{0,12}(พัก|หยุด)|พักวันนี้|วันนี้ไม่ไหว/i.test(input);
+    if (pain) return {
+      status: 'rest', title: 'วันนี้ยังไม่ควรฝืนออกกำลังกาย',
+      reason: 'ข้อความมีการกล่าวถึงอาการเจ็บปวดหรืออาการผิดปกติ จึงไม่แนะนำให้ฝึกต่อเพื่อความปลอดภัย',
+      evidence, suggestions: [], caution: 'หยุดท่าที่กระตุ้นอาการ หากเจ็บรุนแรง เจ็บหน้าอก หายใจลำบาก เวียนศีรษะมาก หรืออาการไม่ดีขึ้น ควรขอคำแนะนำจากบุคลากรทางการแพทย์'
+    };
+    if (restToday || (fatigue && recent.length)) return {
+      status: 'recovery', title: 'เลือกพักหรือฟื้นตัวเบา ๆ',
+      reason: restToday ? 'คุณระบุว่าวันนี้ต้องการพัก จึงไม่จำเป็นต้องฝืนทำเวท' : 'มีสัญญาณความล้าร่วมกับการฝึกในช่วง 3 วันที่ผ่านมา การเพิ่มความหนักวันนี้อาจไม่เหมาะ',
+      evidence, suggestions: [{ name: 'เดินสบาย ๆ', dose: '10–20 นาที เฉพาะเมื่อรู้สึกไหว' }, { name: 'ขยับข้อต่อเบา ๆ', dose: '5 นาที ไม่ฝืนช่วงการเคลื่อนไหว' }],
+      caution: 'หากยิ่งทำแล้วยิ่งล้า ให้หยุดและพักเต็มที่'
+    };
+    if (trained.includes('full') || (trained.includes('push') && trained.includes('legs') && trained.includes('core'))) return {
+      status: 'recovery', title: 'แนะนำวันฟื้นตัว',
+      reason: 'ข้อมูลที่ให้มาครอบคลุมการฝึกหลายส่วนของร่างกายในช่วงใกล้กัน วันนี้จึงควรเน้นการฟื้นตัวแทนการเพิ่มความหนัก',
+      evidence, suggestions: [{ name: 'เดินสบาย ๆ', dose: '10–20 นาที' }, { name: 'ยืดเหยียดเบา ๆ', dose: '5–8 นาที ไม่ฝืน' }],
+      caution: 'กลับไปฝึกเมื่อความล้าลดลงและเคลื่อนไหวได้ตามปกติ'
+    };
+    const options = [
+      { group: 'legs', name: 'สควอตแตะเก้าอี้', dose: '2 เซ็ต × 8–10 ครั้ง' },
+      { group: 'glutes', name: 'กลูตบริดจ์', dose: '2 เซ็ต × 10–12 ครั้ง' },
+      { group: 'push', name: 'วิดพื้นแบบพิงกำแพง', dose: '2 เซ็ต × 8–10 ครั้ง' },
+      { group: 'core', name: 'เบิร์ดด็อก', dose: '2 เซ็ต × 6 ครั้งต่อข้าง' }
+    ];
+    const available = options.filter(option => !trained.includes(option.group));
+    const chosen = available.slice(0, trained.length ? 2 : 3);
+    if (!chosen.length) return {
+      status: 'recovery', title: 'วันนี้ควรพักจากการฝึกแรงต้าน',
+      reason: 'ส่วนหลักที่ระบบรู้จักถูกใช้งานในช่วงใกล้กันแล้ว จึงไม่พบชุดฝึกที่เหมาะจะเสนอโดยไม่ซ้ำกล้ามเนื้อเดิม',
+      evidence, suggestions: [{ name: 'เดินสบาย ๆ', dose: '10–15 นาที หากรู้สึกสดชื่น' }],
+      caution: 'ระบบรู้จักรูปแบบการฝึกพื้นฐานบางส่วนเท่านั้น หากมีกิจกรรมอื่นที่ไม่ได้บันทึก ให้เล่าเพิ่มได้'
+    };
+    return {
+      status: 'train', title: 'แผนที่แนะนำสำหรับวันนี้',
+      reason: trained.length
+        ? 'หลีกเลี่ยงส่วนที่คุณเพิ่งใช้งาน แล้วเลือกฝึกส่วนอื่นในระดับเริ่มต้น'
+        : 'ยังไม่พบประวัติการฝึกใกล้วันที่เลือก จึงเสนอชุดฝึกพื้นฐานแบบไม่หนักเกินไป',
+      evidence, suggestions: chosen, caution: 'พักระหว่างเซ็ตประมาณ 60–90 วินาที ทำช้า ๆ ในช่วงที่ควบคุมท่าได้ และหยุดหากมีอาการเจ็บ'
+    };
+  }
   return { CATEGORIES, localDate, parseDate, addDays, weekStart, dateRange, minutesBetween, validateActivity,
-    findOverlaps, sumTimeLogs, sumNutrition, bmi, migrateLegacy, inRange };
+    findOverlaps, sumTimeLogs, sumNutrition, bmi, migrateLegacy, inRange, classifyTraining, recommendWorkout };
 });
