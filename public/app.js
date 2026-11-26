@@ -100,7 +100,7 @@
     return messages.map(message=>{
       if(message.role==='user') return '<div class="coach-message user"><b>คุณ</b><p>'+esc(message.text)+'</p></div>';
       const result=message.result||{};
-      const plan=result.plan;
+      const plan=result.hasPlan?result.plan:null;
       const planMarkup=plan?'<div class="ai-plan"><b>'+esc(plan.title||'แผนฝึก')+'</b><p>'+esc(plan.reason||'')+'</p>'+(plan.restDay?'<p>วันนี้เป็นวันพักหรือฟื้นตัว</p>':'<ul>'+(plan.items||[]).map(item=>'<li><b>'+esc(item.exercise)+'</b> · '+esc(item.sets)+' เซ็ต × '+esc(item.reps)+' · พัก '+esc(item.restSeconds)+' วินาที'+(item.targetMuscles?' · '+esc(item.targetMuscles):'')+'</li>').join('')+'</ul>')+'<button type="button" class="secondary-button" data-apply-plan="'+(data.coachMessages||[]).indexOf(message)+'">ยืนยันใช้แผนนี้</button></div>':'';
       return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b><p>'+esc(result.reply||'')+'</p>'+planMarkup+'</div>';
     }).join('');
