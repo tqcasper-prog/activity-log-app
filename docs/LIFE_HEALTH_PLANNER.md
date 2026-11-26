@@ -263,6 +263,17 @@ The working-app branch adds a first usable, browser-local implementation beyond 
 This update is an incremental working baseline, not a claim that all M0–M7 acceptance criteria are complete.
 
 
+### Gemini AI workout coach integration (2026-11-26)
+
+- The Exercise page now calls a same-origin Vercel serverless endpoint at `POST /api/workout-coach`; the Gemini API key is read only from the server-side `GEMINI_API_KEY` environment variable and is never shipped to browser JavaScript.
+- Default model: `gemini-2.5-flash-lite` (Gemini API Free Tier). An optional server-side `GEMINI_MODEL` variable can override the model.
+- The endpoint sends only the selected date, the message submitted to the coach, up to six recent coach conversation turns, up to twelve recent workout records (date, exercise, sets, reps, effort, and notes), and the accepted workout plan for that date. It does not send body measurements, nutrition records, or unrelated activity/time logs.
+- The endpoint validates and truncates inputs, restricts cross-origin browser requests, applies a best-effort per-instance IP rate limit, disables caching, and returns structured JSON. The key must be configured in Vercel Project Settings → Environment Variables; without it the API returns a clear configuration error.
+- Gemini may return a proposed workout plan. The website displays the proposal but does not change the saved plan until the user explicitly confirms it. Accepted plans are stored in browser localStorage under `lhp_v2` as `workoutPlans`.
+- Privacy notice: Google states that content submitted through the Gemini API Free Tier may be used to improve its products. Users should avoid including identifying details or highly sensitive health information. Free-tier availability and quotas can change; reaching a quota limit does not automatically switch the project to a paid tier.
+- The coach is not a medical professional and must not diagnose conditions. It should recommend stopping exercise for concerning symptoms and suggest professional care where appropriate.
+- Deployment and live AI verification require a user-created Gemini API key stored as a Vercel environment variable. No API key is committed to the repository.
+
 ### Workout planning assistant (2026-11-26)
 
 - The Exercise page includes a conversational local helper. The user can describe today's/yesterday's activity, effort, fatigue, discomfort, or available time in Thai.
