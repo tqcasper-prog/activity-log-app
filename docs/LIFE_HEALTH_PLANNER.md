@@ -255,7 +255,7 @@ The working-app branch adds a first usable, browser-local implementation beyond 
 
 - Browser end-to-end tests, responsive manual QA, and real-device checks have not yet been run.
 - GitHub Actions CI has not yet been verified.
-- Per-occurrence editing for recurring weekly activities, duplication, editing historical time/meal entries, richer charts, and full custom date ranges remain to be implemented.
+- Per-occurrence editing for recurring weekly activities, activity duplication, richer charts, and full custom date ranges remain to be implemented.
 - Time-log entries currently store durations rather than start/end intervals, so overlapping actual-time logs cannot yet be detected or de-duplicated.
 - Existing prototype data is preserved but has no guided migration wizard yet.
 - LocalStorage remains device/browser-specific; there is no cross-device sync or authenticated cloud backup.
