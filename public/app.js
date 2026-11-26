@@ -136,6 +136,16 @@
     }
   }
   function renderCoachMessagesOnly(){const target=$('.coach-conversation');if(target)target.innerHTML=renderCoachConversation();}
+  function clearCoachHistory() {
+    if (!(data.coachMessages || []).length) {
+      alert('ไม่มีประวัติแชทให้ล้าง');
+      return;
+    }
+    if (!confirm('ต้องการล้างประวัติแชท AI ทั้งหมดใช่ไหม?\n\nการล้างนี้จะไม่ลบแผนฝึกที่ยืนยันแล้ว ประวัติการออกกำลังกาย หรือข้อมูลสุขภาพอื่น ๆ')) return;
+    data.coachMessages = [];
+    save('ล้างประวัติแชท AI แล้ว');
+  }
+
   function applyWorkoutPlan(index) {
     const message=data.coachMessages[index], plan=message?.result?.plan;
     if(!plan)return;
@@ -150,7 +160,7 @@
     const sessions=data.workouts.filter(x=>x.date===selectedDate).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
     const activePlan=(data.workoutPlans||[]).find(item=>item.date===selectedDate);
     const planCard=activePlan?card('แผนฝึกที่ยืนยันแล้ว','<p><b>'+esc(activePlan.title)+'</b></p><p class="muted small-text">'+esc(activePlan.reason||'')+'</p>'+(activePlan.restDay?'<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>':'<ol class="ai-plan-list">'+(activePlan.items||[]).map(item=>'<li><b>'+esc(item.exercise)+'</b><br>'+esc(item.sets)+' เซ็ต × '+esc(item.reps)+' · พัก '+esc(item.restSeconds)+' วินาที<br><small>'+esc(item.targetMuscles||'')+'</small></li>').join('')+'</ol>')+'<p class="muted small-text">ยืนยันเมื่อ '+new Date(activePlan.acceptedAt).toLocaleString('th-TH')+'</p>'):'';
-    const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear">ล้างบทสนทนา</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
+    const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear" title="ล้างเฉพาะประวัติข้อความแชท ไม่ลบแผนฝึกหรือบันทึกการออกกำลังกาย">ล้างประวัติแชท</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
     return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">บันทึกผลและใช้ผู้ช่วยวางแผนจากสิ่งที่ทำจริง</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
       coach+planCard+
       card('คลังท่าฝึกพื้นฐาน',exerciseLibrary.map((x,i)=>'<details class="exercise-item"><summary><span><b>'+x.name+'</b><small>'+x.target+' · '+x.level+'</small></span><span class="pill">'+x.sets+' เซ็ต · '+x.reps+'</span></summary><p>'+x.steps+'</p><p class="muted small-text">ข้อควรระวัง: '+x.caution+'</p><button data-log-exercise="'+i+'" class="secondary-button">บันทึกการฝึกท่านี้</button></details>').join(''))+
