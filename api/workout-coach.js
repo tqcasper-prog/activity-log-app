@@ -12,8 +12,10 @@ const responseSchema = {
       date: { type: "STRING" }, title: { type: "STRING" }, reason: { type: "STRING" }, restDay: { type: "BOOLEAN" },
       items: { type: "ARRAY", items: { type: "OBJECT", properties: {
         exercise: { type: "STRING" }, sets: { type: "INTEGER" }, reps: { type: "STRING" },
-        restSeconds: { type: "INTEGER" }, targetMuscles: { type: "STRING" }, note: { type: "STRING" }
-      }, required: ["exercise","sets","reps","restSeconds","targetMuscles","note"] } }
+        restSeconds: { type: "INTEGER" }, targetMuscles: { type: "STRING" }, note: { type: "STRING" },
+        setup: { type: "STRING" }, steps: { type: "ARRAY", items: { type: "STRING" } },
+        breathing: { type: "STRING" }, commonMistakes: { type: "STRING" }, caution: { type: "STRING" }
+      }, required: ["exercise","sets","reps","restSeconds","targetMuscles","note","setup","steps","breathing","commonMistakes","caution"] } }
     }, required: ["date","title","reason","restDay","items"] }
   }, required: ["reply","hasPlan","plan"]
 };
@@ -51,7 +53,7 @@ module.exports = async function workoutCoach(req,res) {
   const systemInstruction=`คุณคือโค้ชออกกำลังกายสำหรับผู้เริ่มต้น ตอบภาษาไทยเป็นหลัก สุภาพ เป็นกันเอง และอธิบายเหตุผล
 วางแผนอย่างค่อยเป็นค่อยไป โดยใช้เฉพาะข้อความและประวัติที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ
 ความปลอดภัย: ห้ามวินิจฉัยโรคหรือการบาดเจ็บ หากมีอาการเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้แนะนำหยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก อย่าเพิ่มความหนักหากล้ามาก นอนน้อย หรือฟื้นตัวไม่ดี และให้มีวันพัก
-สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน เลือกท่าพื้นฐานที่เหมาะสม ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย หลีกเลี่ยงฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน
+สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน เลือกท่าพื้นฐานที่เหมาะสม ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย พร้อมวิธีเตรียมท่า ขั้นตอนย่อย 3-6 ข้อ การหายใจ ข้อผิดพลาดที่พบบ่อย และข้อควรระวังอย่างเฉพาะเจาะจงของแต่ละท่า หลีกเลี่ยงฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน
 หากควรพัก ให้ restDay=true และ items=[] หากข้อมูลไม่พอให้ถามเพิ่มและ hasPlan=false แผนเป็นเพียงข้อเสนอ ผู้ใช้ต้องยืนยันก่อนบันทึก
 ส่งคำตอบเป็น JSON ตาม schema เท่านั้น โดย reply เป็นข้อความสนทนา และ hasPlan/plan เป็นข้อมูลแผน`;
   const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกที่บันทึกไว้สำหรับวันนี้",recentTrainingHistory:workouts,previousConversation:conversation,currentAcceptedPlan:existingPlan};
@@ -72,7 +74,7 @@ module.exports = async function workoutCoach(req,res) {
     let parsed; try{parsed=JSON.parse(raw)}catch{return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}
     const plan=parsed.plan&&typeof parsed.plan==="object"?parsed.plan:{};
     const safePlan={date,title:cleanText(plan.title,100)||"แผนฝึกที่แนะนำ",reason:cleanText(plan.reason,500),restDay:Boolean(plan.restDay),
-      items:Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Math.min(20,Math.max(0,Number(item?.sets)||0)),reps:cleanText(item?.reps,40),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),targetMuscles:cleanText(item?.targetMuscles,100),note:cleanText(item?.note,180)})).filter(item=>item.exercise&&item.sets>0&&item.reps):[]};
+      items:Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Math.min(20,Math.max(0,Number(item?.sets)||0)),reps:cleanText(item?.reps,40),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),targetMuscles:cleanText(item?.targetMuscles,100),note:cleanText(item?.note,180),setup:cleanText(item?.setup,300),steps:Array.isArray(item?.steps)?item.steps.slice(0,6).map(step=>cleanText(step,220)).filter(Boolean):[],breathing:cleanText(item?.breathing,220),commonMistakes:cleanText(item?.commonMistakes,260),caution:cleanText(item?.caution,260)})).filter(item=>item.exercise&&item.sets>0&&item.reps):[]};
     if(safePlan.restDay)safePlan.items=[];
     const hasPlan=Boolean(parsed.hasPlan)&&(safePlan.restDay||safePlan.items.length>0);
     return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,plan:safePlan});
