@@ -26,3 +26,11 @@
 .coach-form textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .coach-form .button-row{margin-top:9px;align-items:center}
 @media(max-width:520px){.coach-message{max-width:100%}.coach-form .button-row>*{flex:1}.coach-panel{padding:14px}}
+
+.ai-plan{margin-top:12px;padding:13px;border:1px solid #d5e8dc;border-radius:11px;background:#fff}
+.ai-plan>p{margin:6px 0;font-size:12px}
+.ai-plan ul,.ai-plan-list{padding-left:20px;font-size:12px}
+.ai-plan li,.ai-plan-list li{margin:8px 0;line-height:1.55}
+.ai-plan .secondary-button{margin-top:8px}
+.coach-form button:disabled{opacity:.65;cursor:wait}
+.coach-message.assistant{max-width:100%}
