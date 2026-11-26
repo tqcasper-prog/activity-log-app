@@ -1,0 +1,18 @@
+name: Planner tests
+on:
+  push:
+    branches:
+      - feat/life-health-planner-working-app
+  pull_request:
+    branches:
+      - main
+      - feat/life-health-planner-working-app
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: npm test
