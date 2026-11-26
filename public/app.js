@@ -42,7 +42,8 @@
     $('#nav').innerHTML = items.map(([id,label]) => '<button type="button" class="nav-item '+(page===id?'active':'')+'" data-page="'+id+'">'+label+'</button>').join('');
   }
   function header() {
-    $('#today-label').textContent = fmtDate(selectedDate);
+    $('#today-label') && ($('#today-label').textContent = fmtDate(selectedDate));
+    $('#global-date').value = selectedDate;
     $('#status').textContent = 'บันทึกในอุปกรณ์นี้';
     $('#notice').textContent = notice;
   }
