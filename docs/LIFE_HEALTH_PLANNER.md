@@ -266,7 +266,7 @@ This update is an incremental working baseline, not a claim that all M0–M7 acc
 ### Gemini AI workout coach integration (2026-11-26)
 
 - The Exercise page now calls a same-origin Vercel serverless endpoint at `POST /api/workout-coach`; the Gemini API key is read only from the server-side `GEMINI_API_KEY` environment variable and is never shipped to browser JavaScript.
-- Default model: `gemini-2.5-flash-lite` (Gemini API Free Tier). An optional server-side `GEMINI_MODEL` variable can override the model.
+- Default model: `gemini-3.5-flash-lite` (Gemini API Free Tier). An optional server-side `GEMINI_MODEL` variable can override the model.
 - The endpoint sends only the selected date, the message submitted to the coach, up to six recent coach conversation turns, up to twelve recent workout records (date, exercise, sets, reps, effort, and notes), and the accepted workout plan for that date. It does not send body measurements, nutrition records, or unrelated activity/time logs.
 - The endpoint validates and truncates inputs, restricts cross-origin browser requests, applies a best-effort per-instance IP rate limit, disables caching, and returns structured JSON. The key must be configured in Vercel Project Settings → Environment Variables; without it the API returns a clear configuration error.
 - Gemini may return a proposed workout plan. The website displays the proposal but does not change the saved plan until the user explicitly confirms it. Accepted plans are stored in browser localStorage under `lhp_v2` as `workoutPlans`.
