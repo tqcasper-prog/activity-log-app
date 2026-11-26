@@ -120,9 +120,9 @@
       data.coachMessages=data.coachMessages.slice(-16);
       save('ได้รับคำแนะนำจาก Gemini แล้ว');
     } catch(error) {
-      if(text)data.coachMessages=data.coachMessages.filter((message,index)=>!(message.role==='user'&&message.text===text&&index===data.coachMessages.length-1));
-      notice='';render();
-      alert(error.message+' หากยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Vercel ให้เพิ่มคีย์ก่อนใช้งาน');
+      data.coachMessages.push({role:'assistant',result:{reply:'ยังเชื่อมต่อ Gemini ไม่สำเร็จ: '+error.message,hasPlan:false},date:selectedDate,createdAt:new Date().toISOString()});
+      data.coachMessages=data.coachMessages.slice(-16);
+      save('ส่งข้อความไม่สำเร็จ');
     } finally {
       const current=$('#coach-form button[type="submit"]');
       if(current){current.disabled=false;current.textContent='ส่งข้อความ';}
