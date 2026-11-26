@@ -14,14 +14,10 @@
     targets: { calories: 0, protein: 0, carbs: 0, fat: 0 },
     preferences: { timezone: 'Asia/Bangkok', weekStartsOn: 1, units: 'metric' }
   });
-  function readData() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(KEY));
-      if (saved && saved.version === 2) return { ...defaultData(), ...saved };
-    } catch (error) { console.warn('อ่านข้อมูลที่บันทึกไว้ไม่ได้', error); }
-    return defaultData();
+  function normalizeData(saved) {
+    return saved && saved.version === 2 ? { ...defaultData(), ...saved } : defaultData();
   }
-  let data = readData();
+  let data = defaultData();
   let page = 'overview';
   let selectedDate = today();
   let reportPeriod = 'week';
@@ -33,9 +29,22 @@
   const legacyCount = ['lhp_activities','lhp_logs','lhp_foods','lhp_body'].reduce((count,key) => {
     try { const value = JSON.parse(localStorage.getItem(key)); return count + (Array.isArray(value) ? value.length : value && typeof value === 'object' ? 1 : 0); } catch { return count; }
   },0);
+  let saveQueue = Promise.resolve();
   function save(message = 'บันทึกข้อมูลแล้ว') {
-    try { localStorage.setItem(KEY, JSON.stringify(data)); notice = message; render(); }
-    catch { alert('บันทึกไม่สำเร็จ พื้นที่จัดเก็บของเบราว์เซอร์อาจเต็ม'); }
+    notice = message;
+    render();
+    const snapshot = JSON.parse(JSON.stringify(data));
+    saveQueue = saveQueue.then(() => window.LHPStorage.save(snapshot)).then(result => {
+      if (result && result.fallback) {
+        notice = 'บันทึกแล้ว (โหมดสำรองของเบราว์เซอร์)';
+        render();
+      }
+    }).catch(error => {
+      console.error('บันทึกข้อมูลไม่สำเร็จ', error);
+      notice = 'บันทึกไม่สำเร็จ กรุณาส่งออกข้อมูลสำรองและตรวจสอบพื้นที่จัดเก็บ';
+      render();
+      alert('บันทึกไม่สำเร็จ ข้อมูลที่แก้ไขครั้งนี้ยังไม่ยืนยันว่าถูกจัดเก็บ กรุณาส่งออกข้อมูลสำรองและลองใหม่');
+    });
   }
   function nav() {
     const items = [['overview','ภาพรวม','layout-dashboard'],['schedule','ตารางชีวิต','calendar-days'],['time','บันทึกเวลา','clock'],['exercise','ออกกำลังกาย','dumbbell'],['nutrition','โภชนาการ','utensils'],['body','ข้อมูลร่างกาย','activity'],['reports','รายงาน','chart-no-axes-combined'],['settings','ตั้งค่า','settings']];
@@ -261,5 +270,21 @@
   $('#view').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){page=b.dataset.go;render()}});
   $('#global-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
   $('#global-date').value=selectedDate;
-  render();
+  async function initializeStorage() {
+    try {
+      const loaded = await window.LHPStorage.load(KEY);
+      data = normalizeData(loaded.data);
+      notice = loaded.migrated ? 'ย้ายข้อมูลเดิมไปยังระบบจัดเก็บใหม่แล้ว (เก็บต้นฉบับเดิมไว้)' : '';
+      render();
+    } catch (error) {
+      console.error('เปิดระบบจัดเก็บข้อมูลไม่สำเร็จ', error);
+      notice = 'เปิด IndexedDB ไม่สำเร็จ กำลังใช้พื้นที่จัดเก็บสำรองของเบราว์เซอร์';
+      try {
+        const saved = JSON.parse(localStorage.getItem(KEY));
+        data = normalizeData(saved);
+      } catch { data = defaultData(); }
+      render();
+    }
+  }
+  initializeStorage();
 })();
