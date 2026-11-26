@@ -56,7 +56,7 @@ module.exports = async function workoutCoach(req,res) {
 ส่งคำตอบเป็น JSON ตาม schema เท่านั้น โดย reply เป็นข้อความสนทนา และ hasPlan/plan เป็นข้อมูลแผน`;
   const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกที่บันทึกไว้สำหรับวันนี้",recentTrainingHistory:workouts,previousConversation:conversation,currentAcceptedPlan:existingPlan};
   try {
-    const model=process.env.GEMINI_MODEL||"gemini-2.5-flash-lite";
+    const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
     const upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
       method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
       body:JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
