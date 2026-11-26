@@ -101,14 +101,27 @@
     {name:'กลูตบริดจ์',target:'สะโพกและแกนกลางลำตัว',level:'เริ่มต้น',sets:'2',reps:'10–15',rest:'60 วินาที',steps:'นอนหงาย ชันเข่า วางเท้าราบกับพื้น เกร็งหน้าท้องและบีบก้น ยกสะโพกขึ้นจนลำตัวเป็นแนวเดียว แล้วลดลงช้า ๆ',caution:'ไม่แอ่นหลังส่วนล่างเพื่อยกให้สูงเกินไป'},
     {name:'เบิร์ดด็อก',target:'แกนกลางลำตัวและหลัง',level:'เริ่มต้น',sets:'2',reps:'6–10 ต่อข้าง',rest:'45–60 วินาที',steps:'ตั้งท่าคลาน ยกแขนข้างหนึ่งไปด้านหน้าและขาตรงข้ามไปด้านหลัง ค้างสั้น ๆ แล้วสลับข้าง',caution:'รักษาสะโพกให้นิ่ง ไม่บิดลำตัว'}
   ];
+  function exerciseDiagram(item) {
+    const name=String(item.exercise||'').toLowerCase();
+    let pose='<circle cx="42" cy="20" r="8"/><path d="M42 29 L42 57 M42 37 L25 48 M42 37 L58 48 M42 57 L29 78 M42 57 L55 78"/>';
+    if(/squat|สควอต|squat/.test(name)) pose='<circle cx="42" cy="16" r="8"/><path d="M42 25 L42 45 L27 55 L20 74 M42 45 L57 55 L64 74 M42 32 L25 40 M42 32 L59 40"/>';
+    else if(/push|วิดพื้น|พิงกำแพง/.test(name)) pose='<circle cx="19" cy="43" r="7"/><path d="M27 46 L57 51 L72 70 M40 49 L35 70 M57 51 L65 32 L78 30 M40 49 L25 60"/>';
+    else if(/bridge|บริดจ์/.test(name)) pose='<circle cx="16" cy="57" r="7"/><path d="M24 58 L42 38 L62 53 L73 73 M42 38 L48 67 M62 53 L67 73"/>';
+    else if(/bird|เบิร์ด/.test(name)) pose='<circle cx="30" cy="30" r="7"/><path d="M37 36 L58 47 L75 40 M48 42 L30 57 L15 57 M58 47 L62 69 M58 47 L78 60"/>';
+    return '<div class="exercise-visual" role="img" aria-label="ภาพแผนผังท่าฝึก '+esc(item.exercise)+'"><svg viewBox="0 0 90 90" aria-hidden="true"><path class="ground" d="M7 80 H83"/><g class="figure" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">'+pose+'</g></svg><span>ภาพแผนผังท่าฝึก</span></div>';
+  }
+  function renderPlanTable(plan) {
+    if(plan.restDay) return '<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>';
+    const rows=(plan.items||[]).map((item,i)=>'<tr><td><b>'+(i+1)+'. '+esc(item.exercise)+'</b><small class="table-sub">'+esc(item.targetMuscles||'กล้ามเนื้อเป้าหมายไม่ได้ระบุ')+'</small>'+exerciseDiagram(item)+'</td><td>'+esc(item.sets)+' เซ็ต × '+esc(item.reps)+'</td><td>'+esc(item.restSeconds)+' วินาที</td></tr><tr class="instruction-row"><td colspan="3"><details><summary>วิธีทำอย่างละเอียดและข้อควรระวัง</summary><div class="exercise-instructions"><p><b>เตรียมท่า:</b> '+esc(item.setup||'จัดท่าให้มั่นคงและเคลื่อนไหวในช่วงที่ควบคุมได้')+'</p><p><b>ขั้นตอน:</b></p><ol>'+((item.steps||[]).map(step=>'<li>'+esc(step)+'</li>').join('')||'<li>'+esc(item.note||'ทำช้า ๆ และควบคุมการเคลื่อนไหว')+'</li>')+'</ol><p><b>การหายใจ:</b> '+esc(item.breathing||'หายใจต่อเนื่อง ไม่กลั้นหายใจ')+'</p><p><b>ข้อผิดพลาดที่พบบ่อย:</b> '+esc(item.commonMistakes||'อย่ารีบทำหรือฝืนช่วงการเคลื่อนไหว')+'</p><p><b>ข้อควรระวัง:</b> '+esc(item.caution||item.note||'หยุดทันทีหากเจ็บผิดปกติ')+'</p></div></details></td></tr>').join('');
+    return '<div class="table-scroll"><table class="workout-plan-table"><thead><tr><th>ท่าออกกำลังกาย</th><th>จำนวน</th><th>เวลาพัก</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
   function renderCoachConversation() {
     const messages=(data.coachMessages||[]).slice(-8);
-    if(!messages.length) return '<div class="coach-empty">เล่าว่าวันนี้หรือเมื่อวานทำอะไรไปบ้าง เช่น “เมื่อวานวิดพื้น 2 เซ็ต วันนี้เดินเยอะและรู้สึกล้า” ผู้ช่วยจะนำไปเทียบกับประวัติการฝึกที่บันทึกไว้</div>';
+    if(!messages.length) return '<div class="coach-empty">เล่าว่าวันนี้หรือเมื่อวานทำอะไรไปบ้าง เช่น “เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย” ผู้ช่วยจะนำไปเทียบกับประวัติการฝึกที่บันทึกไว้</div>';
     return messages.map(message=>{
       if(message.role==='user') return '<div class="coach-message user"><b>คุณ</b><p>'+esc(message.text)+'</p></div>';
-      const result=message.result||{};
-      const plan=result.hasPlan?result.plan:null;
-      const planMarkup=plan?'<div class="ai-plan"><b>'+esc(plan.title||'แผนฝึก')+'</b><p>'+esc(plan.reason||'')+'</p>'+(plan.restDay?'<p>วันนี้เป็นวันพักหรือฟื้นตัว</p>':'<ul>'+(plan.items||[]).map(item=>'<li><b>'+esc(item.exercise)+'</b> · '+esc(item.sets)+' เซ็ต × '+esc(item.reps)+' · พัก '+esc(item.restSeconds)+' วินาที'+(item.targetMuscles?' · '+esc(item.targetMuscles):'')+'</li>').join('')+'</ul>')+'<button type="button" class="secondary-button" data-apply-plan="'+(data.coachMessages||[]).indexOf(message)+'">ยืนยันใช้แผนนี้</button></div>':'';
+      const result=message.result||{}, plan=result.hasPlan?result.plan:null;
+      const planMarkup=plan?'<div class="ai-plan"><b>'+esc(plan.title||'แผนฝึก')+'</b><p>'+esc(plan.reason||'')+'</p>'+renderPlanTable(plan)+'<button type="button" class="secondary-button" data-apply-plan="'+(data.coachMessages||[]).indexOf(message)+'">ยืนยันใช้แผนนี้</button></div>':'';
       return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b><p>'+esc(result.reply||'')+'</p>'+planMarkup+'</div>';
     }).join('');
   }
@@ -159,7 +172,7 @@
   function renderExercise() {
     const sessions=data.workouts.filter(x=>x.date===selectedDate).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
     const activePlan=(data.workoutPlans||[]).find(item=>item.date===selectedDate);
-    const planCard=activePlan?card('แผนฝึกที่ยืนยันแล้ว','<p><b>'+esc(activePlan.title)+'</b></p><p class="muted small-text">'+esc(activePlan.reason||'')+'</p>'+(activePlan.restDay?'<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>':'<ol class="ai-plan-list">'+(activePlan.items||[]).map(item=>'<li><b>'+esc(item.exercise)+'</b><br>'+esc(item.sets)+' เซ็ต × '+esc(item.reps)+' · พัก '+esc(item.restSeconds)+' วินาที<br><small>'+esc(item.targetMuscles||'')+'</small></li>').join('')+'</ol>')+'<p class="muted small-text">ยืนยันเมื่อ '+new Date(activePlan.acceptedAt).toLocaleString('th-TH')+'</p>'):'';
+    const planCard=activePlan?card('แผนฝึกที่ยืนยันแล้ว','<p><b>'+esc(activePlan.title)+'</b></p><p class="muted small-text">'+esc(activePlan.reason||'')+'</p>'+renderPlanTable(activePlan)+'<p class="muted small-text">ยืนยันเมื่อ '+new Date(activePlan.acceptedAt).toLocaleString('th-TH')+'</p>'):'';
     const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear" title="ล้างเฉพาะประวัติข้อความแชท ไม่ลบแผนฝึกหรือบันทึกการออกกำลังกาย">ล้างประวัติแชท</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
     return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">บันทึกผลและใช้ผู้ช่วยวางแผนจากสิ่งที่ทำจริง</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
       coach+planCard+
