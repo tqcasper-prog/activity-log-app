@@ -106,7 +106,9 @@
     }).join('');
   }
   function askWorkoutCoach(text) {
-    const result=D.recommendWorkout({date:selectedDate,text,workouts:data.workouts});
+    const prior=(data.coachMessages||[]).filter(message=>message.role==='user'&&message.date===selectedDate).slice(-4).map(message=>message.text);
+    const context=[...prior,text].filter(Boolean).join(' ');
+    const result=D.recommendWorkout({date:selectedDate,text:context,workouts:data.workouts});
     data.coachMessages=data.coachMessages||[];
     if(text) data.coachMessages.push({role:'user',text,date:selectedDate,createdAt:new Date().toISOString()});
     data.coachMessages.push({role:'assistant',result,date:selectedDate,createdAt:new Date().toISOString()});
