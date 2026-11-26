@@ -60,3 +60,29 @@ test('migrates legacy entries without deleting or overwriting source records', (
   assert.equal(migrated.logs[0].durationMinutes, 90);
   assert.equal(migrated.meals[0].calories, 150);
 });
+
+
+test('workout coach recommends different muscles after recent push exercise', () => {
+  const result = d.recommendWorkout({
+    date: '2026-11-26',
+    text: 'เมื่อวานวิดพื้น 2 เซ็ต',
+    workouts: [{ date: '2026-11-25', exercise: 'วิดพื้นแบบพิงกำแพง', effort: 'พอดี' }]
+  });
+  assert.equal(result.status, 'train');
+  assert.ok(result.suggestions.every(item => !/วิดพื้น/.test(item.name)));
+  assert.match(result.reason, /หลีกเลี่ยงส่วน/);
+});
+
+test('workout coach recommends recovery when the user reports pain', () => {
+  const result = d.recommendWorkout({ date: '2026-11-26', text: 'วันนี้เจ็บหัวเข่า' });
+  assert.equal(result.status, 'rest');
+  assert.equal(result.suggestions.length, 0);
+});
+
+test('workout coach recommends recovery after a full-body workout', () => {
+  const result = d.recommendWorkout({
+    date: '2026-11-26',
+    workouts: [{ date: '2026-11-25', exercise: 'ฝึกทั้งตัว full body' }]
+  });
+  assert.equal(result.status, 'recovery');
+});
