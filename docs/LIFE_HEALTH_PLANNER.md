@@ -261,3 +261,14 @@ The working-app branch adds a first usable, browser-local implementation beyond 
 - LocalStorage remains device/browser-specific; there is no cross-device sync or authenticated cloud backup.
 
 This update is an incremental working baseline, not a claim that all M0–M7 acceptance criteria are complete.
+
+
+### Workout planning assistant (2026-11-26)
+
+- The Exercise page includes a conversational local helper. The user can describe today's/yesterday's activity, effort, fatigue, discomfort, or available time in Thai.
+- The helper compares the text with saved exercise sessions from the selected date and the previous two days, identifies a limited set of known movement groups, and suggests a conservative alternative session or recovery.
+- Pain / concerning symptom keywords lead to a rest recommendation; explicit fatigue and recovery cues lead to a lighter recovery recommendation.
+- Each response includes the reason and the saved/text evidence used. The last 16 messages are stored in the same browser-local data record and can be cleared by the user.
+- This is a transparent keyword/rule-based assistant, not a generative AI model. It runs locally, makes no external AI/API calls, and can miss nuanced phrasing or exercises outside its vocabulary.
+- It is not a medical assessment. The user should stop if pain, dizziness, or unusual symptoms occur and seek qualified care when symptoms are severe or persistent.
+- The recommendation engine is covered by unit tests for muscle rotation, recent workout history, pain, full-body sessions, and fatigue.
