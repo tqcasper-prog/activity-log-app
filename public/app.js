@@ -10,7 +10,7 @@
   const fmtDate = value => value ? new Intl.DateTimeFormat('th-TH',{dateStyle:'medium'}).format(D.parseDate(value)) : '—';
   const fmtHours = mins => (Number(mins || 0) / 60).toLocaleString('th-TH',{maximumFractionDigits:1}) + ' ชม.';
   const defaultData = () => ({
-    version: 2, activities: [], timeLogs: [], meals: [], workouts: [], measurements: [], coachMessages: [],
+    version: 2, activities: [], timeLogs: [], meals: [], workouts: [], measurements: [], coachMessages: [], workoutPlans: [],
     targets: { calories: 0, protein: 0, carbs: 0, fat: 0 },
     preferences: { timezone: 'Asia/Bangkok', weekStartsOn: 1, units: 'metric' }
   });
@@ -100,26 +100,52 @@
     return messages.map(message=>{
       if(message.role==='user') return '<div class="coach-message user"><b>คุณ</b><p>'+esc(message.text)+'</p></div>';
       const result=message.result||{};
-      const suggestions=(result.suggestions||[]).map(item=>'<li><b>'+esc(item.name)+'</b> — '+esc(item.dose)+'</li>').join('');
-      const evidence=(result.evidence||[]).map(item=>'<li>'+esc(item)+'</li>').join('');
-      return '<div class="coach-message assistant"><b>ผู้ช่วยออกกำลังกาย</b><strong>'+esc(result.title||'คำแนะนำ')+'</strong><p>'+esc(result.reason||'')+'</p>'+(suggestions?'<ul>'+suggestions+'</ul>':'')+(evidence?'<details><summary>ข้อมูลที่นำมาพิจารณา</summary><ul>'+evidence+'</ul></details>':'')+(result.caution?'<small>'+esc(result.caution)+'</small>':'')+'</div>';
+      const plan=result.plan;
+      const planMarkup=plan?'<div class="ai-plan"><b>'+esc(plan.title||'แผนฝึก')+'</b><p>'+esc(plan.reason||'')+'</p>'+(plan.restDay?'<p>วันนี้เป็นวันพักหรือฟื้นตัว</p>':'<ul>'+(plan.items||[]).map(item=>'<li><b>'+esc(item.exercise)+'</b> · '+esc(item.sets)+' เซ็ต × '+esc(item.reps)+' · พัก '+esc(item.restSeconds)+' วินาที'+(item.targetMuscles?' · '+esc(item.targetMuscles):'')+'</li>').join('')+'</ul>')+'<button type="button" class="secondary-button" data-apply-plan="'+(data.coachMessages||[]).indexOf(message)+'">ยืนยันใช้แผนนี้</button></div>':'';
+      return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b><p>'+esc(result.reply||'')+'</p>'+planMarkup+'</div>';
     }).join('');
   }
-  function askWorkoutCoach(text) {
-    const prior=(data.coachMessages||[]).filter(message=>message.role==='user'&&message.date===selectedDate).slice(-4).map(message=>message.text);
-    const context=[...prior,text].filter(Boolean).join(' ');
-    const result=D.recommendWorkout({date:selectedDate,text:context,workouts:data.workouts});
-    data.coachMessages=data.coachMessages||[];
-    if(text) data.coachMessages.push({role:'user',text,date:selectedDate,createdAt:new Date().toISOString()});
-    data.coachMessages.push({role:'assistant',result,date:selectedDate,createdAt:new Date().toISOString()});
-    data.coachMessages=data.coachMessages.slice(-16);
-    save('ผู้ช่วยวิเคราะห์ข้อมูลให้แล้ว');
+  async function askWorkoutCoach(text) {
+    const form=$('#coach-form'), submit=form.querySelector('button[type="submit"]');
+    const prior=(data.coachMessages||[]).filter(message=>message.date===selectedDate).slice(-6).map(message=>({role:message.role==='user'?'user':'assistant',text:message.role==='user'?message.text:(message.result?.reply||'')}));
+    const history=data.workouts.filter(item=>item.date<=selectedDate).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12).map(item=>({date:item.date,exercise:item.exercise,sets:item.sets,reps:item.reps,effort:item.effort,notes:item.notes}));
+    const payload={date:selectedDate,message:text||'จากประวัติที่บันทึกไว้ ช่วยประเมินว่าควรฝึกหรือพักวันนี้',conversation:prior,workouts:history,existingPlan:(data.workoutPlans||[]).filter(plan=>plan.date===selectedDate).slice(-1)[0]||null};
+    if(text){data.coachMessages.push({role:'user',text,date:selectedDate,createdAt:new Date().toISOString()});data.coachMessages=data.coachMessages.slice(-16);renderCoachMessagesOnly();}
+    submit.disabled=true;submit.textContent='กำลังคิดแผน…';
+    try {
+      const response=await fetch('/api/workout-coach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(body.error||'เชื่อมต่อผู้ช่วยไม่สำเร็จ');
+      data.coachMessages.push({role:'assistant',result:body,date:selectedDate,createdAt:new Date().toISOString()});
+      data.coachMessages=data.coachMessages.slice(-16);
+      save('ได้รับคำแนะนำจาก Gemini แล้ว');
+    } catch(error) {
+      if(text)data.coachMessages=data.coachMessages.filter((message,index)=>!(message.role==='user'&&message.text===text&&index===data.coachMessages.length-1));
+      notice='';render();
+      alert(error.message+' หากยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Vercel ให้เพิ่มคีย์ก่อนใช้งาน');
+    } finally {
+      const current=$('#coach-form button[type="submit"]');
+      if(current){current.disabled=false;current.textContent='ส่งข้อความ';}
+    }
+  }
+  function renderCoachMessagesOnly(){const target=$('.coach-conversation');if(target)target.innerHTML=renderCoachConversation();}
+  function applyWorkoutPlan(index) {
+    const message=data.coachMessages[index], plan=message?.result?.plan;
+    if(!plan)return;
+    if(!confirm('ยืนยันนำแผนนี้ไปใช้กับตารางฝึกวันที่ '+fmtDate(plan.date||selectedDate)+' หรือไม่?'))return;
+    data.workoutPlans=data.workoutPlans||[];
+    const saved={...plan,id:uid(),date:plan.date||selectedDate,acceptedAt:new Date().toISOString()};
+    data.workoutPlans=data.workoutPlans.filter(item=>item.date!==saved.date);
+    data.workoutPlans.push(saved);
+    save('เพิ่มแผนฝึกลงในเว็บไซต์แล้ว');
   }
   function renderExercise() {
     const sessions=data.workouts.filter(x=>x.date===selectedDate).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-    const coach=card('ผู้ช่วยคิดแผนฝึก','<p class="muted small-text">พิมพ์สิ่งที่ทำไปแล้ว ความรู้สึก หรือเวลาที่มี ระบบจะช่วยเลือกแนวทางฝึกหรือพักจากประวัติที่บันทึกไว้</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="600" placeholder="เช่น เมื่อวานวิดพื้น 15 ครั้ง 2 เซ็ต วันนี้เดินเยอะ ขารู้สึกล้า..."></textarea><div class="button-row"><button class="primary-button" type="submit">ช่วยคิดแผนวันนี้</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear">ล้างบทสนทนา</button></div></form><p class="muted small-text">ทำงานในอุปกรณ์นี้ด้วยกฎที่ตรวจสอบได้ ไม่ได้ส่งข้อความไปยัง AI ภายนอก และอาจจับคำบรรยายที่ซับซ้อนได้ไม่ครบ</p>','coach-panel');
+    const activePlan=(data.workoutPlans||[]).find(item=>item.date===selectedDate);
+    const planCard=activePlan?card('แผนฝึกที่ยืนยันแล้ว','<p><b>'+esc(activePlan.title)+'</b></p><p class="muted small-text">'+esc(activePlan.reason||'')+'</p>'+(activePlan.restDay?'<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>':'<ol class="ai-plan-list">'+(activePlan.items||[]).map(item=>'<li><b>'+esc(item.exercise)+'</b><br>'+esc(item.sets)+' เซ็ต × '+esc(item.reps)+' · พัก '+esc(item.restSeconds)+' วินาที<br><small>'+esc(item.targetMuscles||'')+'</small></li>').join('')+'</ol>')+'<p class="muted small-text">ยืนยันเมื่อ '+new Date(activePlan.acceptedAt).toLocaleString('th-TH')+'</p>'):'';
+    const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear">ล้างบทสนทนา</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
     return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">บันทึกผลและใช้ผู้ช่วยวางแผนจากสิ่งที่ทำจริง</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
-      coach+
+      coach+planCard+
       card('คลังท่าฝึกพื้นฐาน',exerciseLibrary.map((x,i)=>'<details class="exercise-item"><summary><span><b>'+x.name+'</b><small>'+x.target+' · '+x.level+'</small></span><span class="pill">'+x.sets+' เซ็ต · '+x.reps+'</span></summary><p>'+x.steps+'</p><p class="muted small-text">ข้อควรระวัง: '+x.caution+'</p><button data-log-exercise="'+i+'" class="secondary-button">บันทึกการฝึกท่านี้</button></details>').join(''))+
       card('บันทึกผลวันนี้',sessions.length?sessions.map(x=>'<div class="list-row"><div><b>'+esc(x.exercise)+'</b><small>'+x.sets+' เซ็ต · '+x.reps+' ครั้ง/เซ็ต · พัก '+x.rest+' วินาที</small>'+(x.notes?'<small>'+esc(x.notes)+'</small>':'')+'</div><button class="danger-link" data-delete-workout="'+x.id+'">ลบ</button></div>').join(''):'<div class="empty-state">ยังไม่มีบันทึกการฝึกในวันนี้</div>')+
       '<div id="exercise-editor"></div><div class="notice subtle">หากเจ็บแปลบ เวียนศีรษะ เจ็บข้อ หรือมีอาการผิดปกติ ให้หยุดฝึกทันที การบันทึกนี้ไม่ใช่การวินิจฉัยหรือแผนรักษา</div>';
@@ -160,7 +186,7 @@
       card('เป้าหมายโภชนาการ (ตั้งค่าเอง)','<form id="targets-form" class="form-grid">'+formField('พลังงาน (kcal / วัน)','<input type="number" name="calories" min="0" value="'+data.targets.calories+'">')+formField('โปรตีน (g / วัน)','<input type="number" name="protein" min="0" value="'+data.targets.protein+'">')+formField('คาร์โบไฮเดรต (g / วัน)','<input type="number" name="carbs" min="0" value="'+data.targets.carbs+'">')+formField('ไขมัน (g / วัน)','<input type="number" name="fat" min="0" value="'+data.targets.fat+'">')+'<div class="form-actions"><button class="primary-button">บันทึกเป้าหมาย</button></div></form><p class="muted small-text">ค่าเริ่มต้นเว้นว่างไว้ เพราะเป้าหมายควรเหมาะกับแต่ละบุคคล</p>')+
       card('สำรองและย้ายข้อมูล','<p>ข้อมูลใหม่เก็บไว้ใน LocalStorage ของเบราว์เซอร์และอุปกรณ์นี้เท่านั้น</p><div class="button-row"><button class="primary-button" id="export-data">ส่งออกข้อมูล JSON</button><label class="secondary-button file-button">นำเข้าไฟล์ JSON<input type="file" id="import-data" accept="application/json" hidden></label></div><p class="muted small-text">การนำเข้าจะรวมรายการจากไฟล์เข้ากับข้อมูลปัจจุบัน ไม่ลบข้อมูลเดิม</p>')+
       card('ข้อมูลจากต้นแบบเดิม',legacyCount?'<p>พบข้อมูลเดิม '+legacyCount+' รายการในคีย์จัดเก็บเก่า ข้อมูลเหล่านี้ยังคงอยู่ ไม่ได้ถูกลบหรือเขียนทับ</p><p class="muted small-text">ยังไม่นำเข้าข้อมูลอัตโนมัติ เพราะบันทึกเดิมบางรายการไม่มีวันที่จริง การกำหนดวันที่แทนอาจทำให้รายงานคลาดเคลื่อน</p>':'<p>ไม่พบข้อมูลจากต้นแบบเดิม')+
-      card('ความเป็นส่วนตัว','<p>ข้อมูลสุขภาพและกิจวัตรเก็บในเบราว์เซอร์นี้ ไม่มีการส่งไปยังบริการภายนอกหรือ AI</p><p class="muted small-text">หากล้างข้อมูลเว็บไซต์หรือเปลี่ยนอุปกรณ์ ข้อมูลอาจสูญหาย โปรดส่งออกไฟล์สำรองเป็นระยะ</p><button class="danger-button" id="clear-data">ลบข้อมูลในเว็บนี้ทั้งหมด</button>');
+      card('ความเป็นส่วนตัว','<p>ข้อมูลทั่วไปของเว็บไซต์ยังเก็บในเบราว์เซอร์นี้ ส่วนฟีเจอร์โค้ชออกกำลังกายจะส่งเฉพาะข้อความที่คุณส่ง ประวัติการฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบันไปยัง Google Gemini API เพื่อสร้างคำแนะนำ</p><p class="muted small-text">Gemini API Free Tier อาจนำเนื้อหาที่ส่งไปใช้ปรับปรุงผลิตภัณฑ์ของ Google โปรดหลีกเลี่ยงข้อมูลระบุตัวตนและข้อมูลสุขภาพที่ละเอียดอ่อน ข้อมูลร่างกายและโภชนาการจะไม่ถูกส่งโดยอัตโนมัติ</p><p class="muted small-text">API Key เก็บใน Environment Variable ฝั่งเซิร์ฟเวอร์ ไม่อยู่ในโค้ดหน้าเว็บ</p><button class="danger-button" id="clear-data">ลบข้อมูลในเว็บนี้ทั้งหมด</button>');
   }
   function render() {
     nav(); header();
@@ -200,9 +226,10 @@
   }
   function bindExercise() {
     $('#exercise-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
-    $('#coach-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#coach-input').value.trim();if(!text)return alert('ลองเล่าว่าวันนี้หรือเมื่อวานทำอะไรไปบ้างก่อนนะ');askWorkoutCoach(text)});
+    $('#coach-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#coach-input').value.trim();if(!text)return alert('กรุณาพิมพ์ข้อความก่อนส่ง');$('#coach-input').value='';askWorkoutCoach(text)});
     $('#coach-history').addEventListener('click',()=>askWorkoutCoach(''));
     $('#coach-clear').addEventListener('click',()=>{if(confirm('ล้างบทสนทนากับผู้ช่วยออกจากอุปกรณ์นี้หรือไม่?')){data.coachMessages=[];save('ล้างบทสนทนาแล้ว')}});
+    $('[data-apply-plan]').forEach(b=>b.addEventListener('click',()=>applyWorkoutPlan(Number(b.dataset.applyPlan))));
     $('[data-log-exercise]').forEach(b=>b.addEventListener('click',()=>{$('#exercise-editor').innerHTML=workoutForm(Number(b.dataset.logExercise));bindWorkoutForm(Number(b.dataset.logExercise))}));
     $('[data-delete-workout]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกการฝึกนี้หรือไม่?')){data.workouts=data.workouts.filter(x=>x.id!==b.dataset.deleteWorkout);save()}}));
   }
