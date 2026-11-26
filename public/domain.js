@@ -11,7 +11,7 @@
     return [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join('-');
   }
   function parseDate(value) {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value))) throw new Error('รูปแบบวันที่ไม่ถูกต้อง');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) throw new Error('รูปแบบวันที่ไม่ถูกต้อง');
     const [y, m, d] = value.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) throw new Error('วันที่ไม่มีอยู่จริง');
@@ -32,7 +32,7 @@
     throw new Error('ช่วงรายงานไม่ถูกต้อง');
   }
   function minutesBetween(start, end) {
-    if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(start) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(end)) throw new Error('กรุณาระบุเวลาให้ถูกต้อง');
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end)) throw new Error('กรุณาระบุเวลาให้ถูกต้อง');
     const [sh, sm] = start.split(':').map(Number), [eh, em] = end.split(':').map(Number);
     let result = eh * 60 + em - (sh * 60 + sm);
     if (result <= 0) result += 1440;
@@ -83,8 +83,8 @@
     const activities = (legacy.activities || []).map((a, i) => {
       const [start, end] = String(a.time || '').split(/[–-]/).map(s => s.trim());
       return { id: 'legacy-a-' + i, title: a.name || 'กิจกรรมเดิม', category: a.category || 'อื่น ๆ',
-        date: a.date || '', dayName: a.day || '', start: /^\\d{2}:\\d{2}$/.test(start || '') ? start : '09:00',
-        end: /^\\d{2}:\\d{2}$/.test(end || '') ? end : '10:00', status: 'planned', legacy: true };
+        date: a.date || '', dayName: a.day || '', start: /^\d{2}:\d{2}$/.test(start || '') ? start : '09:00',
+        end: /^\d{2}:\d{2}$/.test(end || '') ? end : '10:00', status: 'planned', legacy: true };
     });
     const logs = (legacy.logs || []).map((x, i) => ({ id: 'legacy-l-' + i, date: x.date || '', category: x.category || 'อื่น ๆ',
       title: x.detail || x.category || 'บันทึกเดิม', durationMinutes: Math.round((Number(x.hours) || 0) * 60), notes: '', legacy: true }));
