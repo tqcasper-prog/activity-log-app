@@ -34,7 +34,7 @@
     notice = message;
     render();
     const snapshot = JSON.parse(JSON.stringify(data));
-    saveQueue = saveQueue.then(() => window.LHPStorage.save(snapshot)).then(result => {
+    saveQueue = saveQueue.catch(() => {}).then(() => window.LHPStorage.save(snapshot)).then(result => {
       if (result && result.fallback) {
         notice = 'บันทึกแล้ว (โหมดสำรองของเบราว์เซอร์)';
         render();
