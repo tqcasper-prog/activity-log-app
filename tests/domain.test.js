@@ -86,3 +86,18 @@ test('workout coach recommends recovery after a full-body workout', () => {
   });
   assert.equal(result.status, 'recovery');
 });
+
+
+test('workout coach considers saved workouts from the previous two days', () => {
+  const result = d.recommendWorkout({
+    date: '2026-11-26',
+    workouts: [{ date: '2026-11-25', exercise: 'สควอตแตะเก้าอี้', effort: 'พอดี' }]
+  });
+  assert.ok(result.evidence.some(item => item.includes('2026-11-25')));
+  assert.ok(result.suggestions.every(item => !/สควอต/.test(item.name)));
+});
+
+test('workout coach recommends recovery when the user reports fatigue even without saved sessions', () => {
+  const result = d.recommendWorkout({ date: '2026-11-26', text: 'วันนี้ล้ามาก นอนไม่พอ' });
+  assert.equal(result.status, 'recovery');
+});
