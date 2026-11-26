@@ -10,7 +10,7 @@
   const fmtDate = value => value ? new Intl.DateTimeFormat('th-TH',{dateStyle:'medium'}).format(D.parseDate(value)) : '—';
   const fmtHours = mins => (Number(mins || 0) / 60).toLocaleString('th-TH',{maximumFractionDigits:1}) + ' ชม.';
   const defaultData = () => ({
-    version: 2, activities: [], timeLogs: [], meals: [], workouts: [], measurements: [],
+    version: 2, activities: [], timeLogs: [], meals: [], workouts: [], measurements: [], coachMessages: [],
     targets: { calories: 0, protein: 0, carbs: 0, fat: 0 },
     preferences: { timezone: 'Asia/Bangkok', weekStartsOn: 1, units: 'metric' }
   });
@@ -94,9 +94,30 @@
     {name:'กลูตบริดจ์',target:'สะโพกและแกนกลางลำตัว',level:'เริ่มต้น',sets:'2',reps:'10–15',rest:'60 วินาที',steps:'นอนหงาย ชันเข่า วางเท้าราบกับพื้น เกร็งหน้าท้องและบีบก้น ยกสะโพกขึ้นจนลำตัวเป็นแนวเดียว แล้วลดลงช้า ๆ',caution:'ไม่แอ่นหลังส่วนล่างเพื่อยกให้สูงเกินไป'},
     {name:'เบิร์ดด็อก',target:'แกนกลางลำตัวและหลัง',level:'เริ่มต้น',sets:'2',reps:'6–10 ต่อข้าง',rest:'45–60 วินาที',steps:'ตั้งท่าคลาน ยกแขนข้างหนึ่งไปด้านหน้าและขาตรงข้ามไปด้านหลัง ค้างสั้น ๆ แล้วสลับข้าง',caution:'รักษาสะโพกให้นิ่ง ไม่บิดลำตัว'}
   ];
+  function renderCoachConversation() {
+    const messages=(data.coachMessages||[]).slice(-8);
+    if(!messages.length) return '<div class="coach-empty">เล่าว่าวันนี้หรือเมื่อวานทำอะไรไปบ้าง เช่น “เมื่อวานวิดพื้น 2 เซ็ต วันนี้เดินเยอะและรู้สึกล้า” ผู้ช่วยจะนำไปเทียบกับประวัติการฝึกที่บันทึกไว้</div>';
+    return messages.map(message=>{
+      if(message.role==='user') return '<div class="coach-message user"><b>คุณ</b><p>'+esc(message.text)+'</p></div>';
+      const result=message.result||{};
+      const suggestions=(result.suggestions||[]).map(item=>'<li><b>'+esc(item.name)+'</b> — '+esc(item.dose)+'</li>').join('');
+      const evidence=(result.evidence||[]).map(item=>'<li>'+esc(item)+'</li>').join('');
+      return '<div class="coach-message assistant"><b>ผู้ช่วยออกกำลังกาย</b><strong>'+esc(result.title||'คำแนะนำ')+'</strong><p>'+esc(result.reason||'')+'</p>'+(suggestions?'<ul>'+suggestions+'</ul>':'')+(evidence?'<details><summary>ข้อมูลที่นำมาพิจารณา</summary><ul>'+evidence+'</ul></details>':'')+(result.caution?'<small>'+esc(result.caution)+'</small>':'')+'</div>';
+    }).join('');
+  }
+  function askWorkoutCoach(text) {
+    const result=D.recommendWorkout({date:selectedDate,text,workouts:data.workouts});
+    data.coachMessages=data.coachMessages||[];
+    if(text) data.coachMessages.push({role:'user',text,date:selectedDate,createdAt:new Date().toISOString()});
+    data.coachMessages.push({role:'assistant',result,date:selectedDate,createdAt:new Date().toISOString()});
+    data.coachMessages=data.coachMessages.slice(-16);
+    save('ผู้ช่วยวิเคราะห์ข้อมูลให้แล้ว');
+  }
   function renderExercise() {
     const sessions=data.workouts.filter(x=>x.date===selectedDate).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-    return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">เริ่มจากระดับที่ควบคุมท่าได้ บันทึกผลและให้เวลาร่างกายฟื้นตัว</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
+    const coach=card('ผู้ช่วยคิดแผนฝึก','<p class="muted small-text">พิมพ์สิ่งที่ทำไปแล้ว ความรู้สึก หรือเวลาที่มี ระบบจะช่วยเลือกแนวทางฝึกหรือพักจากประวัติที่บันทึกไว้</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="600" placeholder="เช่น เมื่อวานวิดพื้น 15 ครั้ง 2 เซ็ต วันนี้เดินเยอะ ขารู้สึกล้า..."></textarea><div class="button-row"><button class="primary-button" type="submit">ช่วยคิดแผนวันนี้</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear">ล้างบทสนทนา</button></div></form><p class="muted small-text">ทำงานในอุปกรณ์นี้ด้วยกฎที่ตรวจสอบได้ ไม่ได้ส่งข้อความไปยัง AI ภายนอก และอาจจับคำบรรยายที่ซับซ้อนได้ไม่ครบ</p>','coach-panel');
+    return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">บันทึกผลและใช้ผู้ช่วยวางแผนจากสิ่งที่ทำจริง</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
+      coach+
       card('คลังท่าฝึกพื้นฐาน',exerciseLibrary.map((x,i)=>'<details class="exercise-item"><summary><span><b>'+x.name+'</b><small>'+x.target+' · '+x.level+'</small></span><span class="pill">'+x.sets+' เซ็ต · '+x.reps+'</span></summary><p>'+x.steps+'</p><p class="muted small-text">ข้อควรระวัง: '+x.caution+'</p><button data-log-exercise="'+i+'" class="secondary-button">บันทึกการฝึกท่านี้</button></details>').join(''))+
       card('บันทึกผลวันนี้',sessions.length?sessions.map(x=>'<div class="list-row"><div><b>'+esc(x.exercise)+'</b><small>'+x.sets+' เซ็ต · '+x.reps+' ครั้ง/เซ็ต · พัก '+x.rest+' วินาที</small>'+(x.notes?'<small>'+esc(x.notes)+'</small>':'')+'</div><button class="danger-link" data-delete-workout="'+x.id+'">ลบ</button></div>').join(''):'<div class="empty-state">ยังไม่มีบันทึกการฝึกในวันนี้</div>')+
       '<div id="exercise-editor"></div><div class="notice subtle">หากเจ็บแปลบ เวียนศีรษะ เจ็บข้อ หรือมีอาการผิดปกติ ให้หยุดฝึกทันที การบันทึกนี้ไม่ใช่การวินิจฉัยหรือแผนรักษา</div>';
@@ -177,8 +198,11 @@
   }
   function bindExercise() {
     $('#exercise-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
-    $$('[data-log-exercise]').forEach(b=>b.addEventListener('click',()=>{$('#exercise-editor').innerHTML=workoutForm(Number(b.dataset.logExercise));bindWorkoutForm(Number(b.dataset.logExercise))}));
-    $$('[data-delete-workout]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกการฝึกนี้หรือไม่?')){data.workouts=data.workouts.filter(x=>x.id!==b.dataset.deleteWorkout);save()}}));
+    $('#coach-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#coach-input').value.trim();if(!text)return alert('ลองเล่าว่าวันนี้หรือเมื่อวานทำอะไรไปบ้างก่อนนะ');askWorkoutCoach(text)});
+    $('#coach-history').addEventListener('click',()=>askWorkoutCoach(''));
+    $('#coach-clear').addEventListener('click',()=>{if(confirm('ล้างบทสนทนากับผู้ช่วยออกจากอุปกรณ์นี้หรือไม่?')){data.coachMessages=[];save('ล้างบทสนทนาแล้ว')}});
+    $('[data-log-exercise]').forEach(b=>b.addEventListener('click',()=>{$('#exercise-editor').innerHTML=workoutForm(Number(b.dataset.logExercise));bindWorkoutForm(Number(b.dataset.logExercise))}));
+    $('[data-delete-workout]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกการฝึกนี้หรือไม่?')){data.workouts=data.workouts.filter(x=>x.id!==b.dataset.deleteWorkout);save()}}));
   }
   function bindWorkoutForm(index) {
     $('#cancel-exercise').addEventListener('click',()=>$('#exercise-editor').innerHTML='');
