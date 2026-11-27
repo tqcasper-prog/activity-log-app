@@ -18,14 +18,9 @@
     try { const saved=JSON.parse(localStorage.getItem(COACH_QUOTA_KEY)||'null'); if(saved&&saved.day===pacificDay()&&Number.isFinite(saved.count)) return saved; } catch {}
     return {day:pacificDay(),count:0};
   }
-  function recordCoachRequest() {
-    const usage=coachUsage(); usage.count++;
-    try { localStorage.setItem(COACH_QUOTA_KEY,JSON.stringify(usage)); } catch {}
-  }
+  function recordCoachRequest() {}
   function coachQuotaMarkup() {
-    const usage=coachUsage(), remaining=Math.max(0,FREE_REFERENCE_RPD-usage.count), percent=Math.min(100,usage.count/FREE_REFERENCE_RPD*100);
-    const warning=percent>=90?'ใกล้ถึงเพดานอ้างอิงแล้ว':percent>=75?'เริ่มใช้โควต้าค่อนข้างมาก':'ยังอยู่ในช่วงใช้งานปกติ';
-    return '<div class="gemini-quota"><div class="quota-heading"><b>Gemini · Free Tier</b><span>'+warning+'</span></div><div class="quota-numbers"><strong>'+usage.count.toLocaleString('th-TH')+'</strong><span>คำขอจากเบราว์เซอร์นี้วันนี้</span><strong>'+remaining.toLocaleString('th-TH')+'</strong><span>คงเหลือโดยประมาณ*</span></div><div class="quota-track"><i style="width:'+percent+'%"></i></div><small>*เทียบกับตัวเลขอ้างอิง 500 คำขอ/วัน ไม่ใช่ยอดคงเหลือจริงของ Google โควต้าจริงขึ้นกับโมเดลและการใช้งานทั้งโปรเจกต์</small><small>รีเซ็ตตามเวลาเที่ยงคืนแปซิฟิก · เวลาไทยโดยประมาณ: '+esc(quotaResetLabel())+'</small><small class="quota-safety">Free Tier ไม่มีค่าใช้จ่ายตามโควต้าฟรี หากเกินขีดจำกัดจะได้รับข้อผิดพลาดและต้องรอรีเซ็ต ระบบไม่สลับไปใช้แพ็กเกจเสียเงิน</small></div>';
+    return '<div class="gemini-quota"><div class="quota-heading"><b>โควต้า Gemini ของบัญชีนี้</b><span>ตรวจสอบจากฐานข้อมูลทุกครั้ง</span></div><small>ระบบจะหักโควต้าตามที่ผู้ดูแลระบบกำหนด และคืนโควต้าอัตโนมัติเมื่อ Gemini ตอบกลับไม่สำเร็จ</small><small class="quota-safety">ไม่มีการสลับไปใช้แพ็กเกจเสียเงินอัตโนมัติ หากโควต้าหมด ระบบจะแจ้งให้ทราบ</small></div>';
   }
   function renderCoachQuotaOnly(){const node=$('.gemini-quota');if(node)node.outerHTML=coachQuotaMarkup();}
 
@@ -202,7 +197,9 @@
     submit.disabled=true;submit.textContent='กำลังคิดแผน…';
     recordCoachRequest(); renderCoachQuotaOnly();
     try {
-      const response=await fetch('/api/workout-coach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const {data:sessionData}=await window.LHPAuth.getClient().auth.getSession();
+      if(!sessionData?.session?.access_token) throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      const response=await fetch('/api/workout-coach',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+sessionData.session.access_token},body:JSON.stringify(payload)});
       const body=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(body.error||'เชื่อมต่อผู้ช่วยไม่สำเร็จ');
       if(body.hasPlan&&(!body.plan||!Array.isArray(body.plan.items)||(!body.plan.restDay&&!body.plan.items.length))) throw new Error('AI ส่งแผนมาไม่ครบ จึงยังสร้างตารางไม่ได้ กรุณาลองขอแผนอีกครั้ง');
