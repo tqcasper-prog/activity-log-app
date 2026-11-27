@@ -40,7 +40,20 @@
 .workout-plan-table{width:100%;border-collapse:collapse;font-size:12px;min-width:480px}
 .workout-plan-table th,.workout-plan-table td{padding:10px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .workout-plan-table th{background:var(--accent-soft);color:var(--accent);font-weight:700;white-space:nowrap}
-.workout-plan-table td:first-child{width:48%}
+.workout-plan-table th:first-child,.workout-plan-table td:first-child{width:42px;text-align:center}
+.workout-plan-table th:nth-child(2){min-width:170px}
+.workout-plan-table th:nth-child(3){min-width:130px}
+.workout-plan-table th:nth-child(n+4){min-width:78px;text-align:center}
+.workout-plan-table td:nth-child(n+4){text-align:center;white-space:nowrap}
+.workout-plan-table .plan-index{color:var(--muted);font-weight:700}
+.workout-plan-table .instruction-row td{padding:0 10px 12px}
+.plan-detail-layout{display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr);gap:12px;align-items:start;padding:8px 0}
+.plan-detail-layout .exercise-visual{grid-column:1}
+.plan-detail-layout .exercise-media{grid-column:1}
+.plan-detail-layout .exercise-instructions{grid-column:2;grid-row:1 / span 2}
+.plan-detail-layout .exercise-photo-grid{grid-template-columns:1fr}
+.plan-detail-layout .exercise-photo-grid img{height:130px}
+@media(max-width:640px){.plan-detail-layout{grid-template-columns:1fr}.plan-detail-layout .exercise-instructions{grid-column:1;grid-row:auto}.workout-plan-table{min-width:680px}}
 .workout-plan-table .table-sub{display:block;color:var(--muted);font-size:11px;margin-top:4px}
 .workout-plan-table .instruction-row td{padding:0 10px 12px}
 .workout-plan-table details>summary{cursor:pointer;color:var(--accent);font-weight:700;padding:8px 0;list-style:revert}
