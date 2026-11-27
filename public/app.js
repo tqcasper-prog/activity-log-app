@@ -137,9 +137,30 @@
     else if(/bird|เบิร์ด/.test(name)) pose='<circle cx="30" cy="30" r="7"/><path d="M37 36 L58 47 L75 40 M48 42 L30 57 L15 57 M58 47 L62 69 M58 47 L78 60"/>';
     return '<div class="exercise-visual" role="img" aria-label="ภาพแผนผังท่าฝึก '+esc(item.exercise)+'"><svg viewBox="0 0 90 90" aria-hidden="true"><path class="ground" d="M7 80 H83"/><g class="figure" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">'+pose+'</g></svg><span>ภาพแผนผังท่าฝึก</span></div>';
   }
+
+  const exerciseMediaCache = new Map();
+  function loadExerciseMedia(root=document) {
+    root.querySelectorAll('[data-exercise-media]').forEach(async node=>{
+      const exercise=node.dataset.exerciseMedia;
+      if(!exercise||node.dataset.loaded==='1') return;
+      node.dataset.loaded='1';
+      try {
+        let media=exerciseMediaCache.get(exercise);
+        if(!media) {
+          const response=await fetch('/api/exercise-media?q='+encodeURIComponent(exercise));
+          if(!response.ok) throw new Error('media lookup failed');
+          media=await response.json(); exerciseMediaCache.set(exercise,media);
+        }
+        if(!node.isConnected) return;
+        const images=(media.images||[]).slice(0,2);
+        node.innerHTML=(images.length?'<div class="exercise-photo-grid">'+images.map(img=>'<a href="'+esc(img.pageUrl)+'" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="'+esc(img.thumbnail)+'" alt="'+esc(img.title)+'"><small>'+esc(img.title)+' · '+esc(img.license||'Wikimedia Commons')+'</small></a>').join('')+'</div>':'<p class="muted small-text">ยังไม่พบภาพที่ตรงกับท่านี้</p>')+'<a class="exercise-video-link" href="'+esc(media.youtubeSearchUrl)+'" target="_blank" rel="noopener noreferrer">▶ ค้นหาวิดีโอสาธิตบน YouTube</a><small class="media-source">ภาพจาก Wikimedia Commons · วิดีโอเปิดจาก YouTube</small>';
+      } catch { if(node.isConnected) node.innerHTML='<a class="exercise-video-link" href="https://www.youtube.com/results?search_query='+encodeURIComponent(exercise+' exercise tutorial')+'" target="_blank" rel="noopener noreferrer">▶ ค้นหาวิดีโอสาธิตบน YouTube</a><small class="media-source">โหลดภาพประกอบไม่สำเร็จ</small>'; }
+    });
+  }
+
   function renderPlanTable(plan) {
     if(plan.restDay) return '<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>';
-    const rows=(plan.items||[]).map((item,i)=>'<tr><td><b>'+(i+1)+'. '+esc(item.exercise)+'</b><small class="table-sub">'+esc(item.targetMuscles||'กล้ามเนื้อเป้าหมายไม่ได้ระบุ')+'</small>'+exerciseDiagram(item)+'</td><td>'+esc(item.sets)+' เซ็ต × '+esc(item.reps)+'</td><td>'+esc(item.restSeconds)+' วินาที</td></tr><tr class="instruction-row"><td colspan="3"><details><summary>วิธีทำอย่างละเอียดและข้อควรระวัง</summary><div class="exercise-instructions"><p><b>เตรียมท่า:</b> '+esc(item.setup||'จัดท่าให้มั่นคงและเคลื่อนไหวในช่วงที่ควบคุมได้')+'</p><p><b>ขั้นตอน:</b></p><ol>'+((item.steps||[]).map(step=>'<li>'+esc(step)+'</li>').join('')||'<li>'+esc(item.note||'ทำช้า ๆ และควบคุมการเคลื่อนไหว')+'</li>')+'</ol><p><b>การหายใจ:</b> '+esc(item.breathing||'หายใจต่อเนื่อง ไม่กลั้นหายใจ')+'</p><p><b>ข้อผิดพลาดที่พบบ่อย:</b> '+esc(item.commonMistakes||'อย่ารีบทำหรือฝืนช่วงการเคลื่อนไหว')+'</p><p><b>ข้อควรระวัง:</b> '+esc(item.caution||item.note||'หยุดทันทีหากเจ็บผิดปกติ')+'</p></div></details></td></tr>').join('');
+    const rows=(plan.items||[]).map((item,i)=>'<tr><td><b>'+(i+1)+'. '+esc(item.exercise)+'</b><small class="table-sub">'+esc(item.targetMuscles||'กล้ามเนื้อเป้าหมายไม่ได้ระบุ')+'</small>'+exerciseDiagram(item)+'<div class="exercise-media" data-exercise-media="'+esc(item.exercise)+'"><span class="muted small-text">กำลังค้นหาภาพและคลิปประกอบ…</span></div>'+'</td><td>'+esc(item.sets)+' เซ็ต × '+esc(item.reps)+'</td><td>'+esc(item.restSeconds)+' วินาที</td></tr><tr class="instruction-row"><td colspan="3"><details><summary>วิธีทำอย่างละเอียดและข้อควรระวัง</summary><div class="exercise-instructions"><p><b>เตรียมท่า:</b> '+esc(item.setup||'จัดท่าให้มั่นคงและเคลื่อนไหวในช่วงที่ควบคุมได้')+'</p><p><b>ขั้นตอน:</b></p><ol>'+((item.steps||[]).map(step=>'<li>'+esc(step)+'</li>').join('')||'<li>'+esc(item.note||'ทำช้า ๆ และควบคุมการเคลื่อนไหว')+'</li>')+'</ol><p><b>การหายใจ:</b> '+esc(item.breathing||'หายใจต่อเนื่อง ไม่กลั้นหายใจ')+'</p><p><b>ข้อผิดพลาดที่พบบ่อย:</b> '+esc(item.commonMistakes||'อย่ารีบทำหรือฝืนช่วงการเคลื่อนไหว')+'</p><p><b>ข้อควรระวัง:</b> '+esc(item.caution||item.note||'หยุดทันทีหากเจ็บผิดปกติ')+'</p></div></details></td></tr>').join('');
     return '<div class="table-scroll"><table class="workout-plan-table"><thead><tr><th>ท่าออกกำลังกาย</th><th>จำนวน</th><th>เวลาพัก</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
   function renderCoachConversation() {
@@ -164,6 +185,7 @@
       const response=await fetch('/api/workout-coach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const body=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(body.error||'เชื่อมต่อผู้ช่วยไม่สำเร็จ');
+      if(body.hasPlan&&(!body.plan||!Array.isArray(body.plan.items)||(!body.plan.restDay&&!body.plan.items.length))) throw new Error('AI ส่งแผนมาไม่ครบ จึงยังสร้างตารางไม่ได้ กรุณาลองขอแผนอีกครั้ง');
       data.coachMessages.push({role:'assistant',result:body,date:selectedDate,createdAt:new Date().toISOString()});
       data.coachMessages=data.coachMessages.slice(-16);
       save('ได้รับคำแนะนำจาก Gemini แล้ว');
@@ -176,7 +198,7 @@
       if(current){current.disabled=false;current.textContent='ส่งข้อความ';}
     }
   }
-  function renderCoachMessagesOnly(){const target=$('.coach-conversation');if(target)target.innerHTML=renderCoachConversation();}
+  function renderCoachMessagesOnly(){const target=$('.coach-conversation');if(target){target.innerHTML=renderCoachConversation();loadExerciseMedia(target);}}
   function clearCoachHistory() {
     if (!(data.coachMessages || []).length) {
       alert('ไม่มีประวัติแชทให้ล้าง');
@@ -250,6 +272,7 @@
     nav(); header();
     const pages={overview:renderOverview,schedule:renderSchedule,time:renderTime,exercise:renderExercise,nutrition:renderNutrition,body:renderBody,reports:renderReports,settings:renderSettings};
     $('#view').innerHTML=(pages[page]||renderOverview)();
+    if(page==='exercise') loadExerciseMedia($('#view'));
     if (page==='schedule') bindSchedule();
     if (page==='time') bindTime();
     if (page==='exercise') bindExercise();
