@@ -242,7 +242,7 @@ module.exports = async function workoutCoach(req,res) {
   try {
     const model=process.env.GEMINI_MODEL||"gemini-3.8-flash";
     const requestBody=JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
-      generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000,thinkingConfig:{thinkingLevel:"MINIMAL"}}});
+      generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000,thinkingConfig:{thinkingLevel:"LOW"}}});
     let upstream,result;
     for(let attempt=0;attempt<3;attempt++){
       upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
