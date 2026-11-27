@@ -5,6 +5,7 @@
   let client = null;
   let currentUser = null;
   let profile = null;
+  let pendingConfirmationEmail = '';
   let resolveReady;
   const ready = new Promise(resolve => { resolveReady = resolve; });
   let resolveUser;
@@ -16,13 +17,16 @@
     if ($('#lhp-auth-gate')) return;
     const gate = document.createElement('main');
     gate.id = 'lhp-auth-gate';
-    gate.innerHTML = '<section class="lhp-auth-card"><div class="lhp-auth-brand">LHP</div><h1>Life &amp; Health Planner</h1><p class="lhp-auth-muted">เข้าสู่ระบบเพื่อเก็บข้อมูลสุขภาพและแผนของคุณอย่างเป็นส่วนตัว</p><form id="lhp-auth-form"><label id="lhp-name-label" hidden>ชื่อผู้ใช้<input name="display_name" type="text" autocomplete="nickname" maxlength="60" placeholder="ชื่อที่ต้องการให้แสดง"></label><label>อีเมล<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="name@example.com"></label><label>รหัสผ่าน<div class="lhp-password-wrap"><input id="lhp-password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="อย่างน้อย 8 ตัวอักษร"><button type="button" id="lhp-toggle-password" aria-label="แสดงรหัสผ่าน" aria-pressed="false">แสดง</button></div></label><label class="lhp-remember"><input type="checkbox" id="lhp-remember" checked> จดจำการเข้าสู่ระบบในอุปกรณ์นี้</label><div class="lhp-auth-actions"><button class="lhp-auth-primary" type="submit" id="lhp-login">เข้าสู่ระบบ</button><button class="lhp-auth-secondary" type="button" id="lhp-signup">สร้างบัญชีใหม่</button></div></form><button class="lhp-auth-link" type="button" id="lhp-forgot">ลืมรหัสผ่าน?</button><p id="lhp-auth-message" role="status" aria-live="polite"></p><small>บัญชีแต่ละบัญชีจะเห็นเฉพาะข้อมูลของตนเอง</small></section>';
+    gate.innerHTML = '<section class="lhp-auth-card"><div class="lhp-auth-brand">LHP</div><h1>Life &amp; Health Planner</h1><p class="lhp-auth-muted">เข้าสู่ระบบเพื่อเก็บข้อมูลสุขภาพและแผนของคุณอย่างเป็นส่วนตัว</p>' +
+      '<section class="lhp-auth-screen" id="lhp-login-screen"><h2>เข้าสู่ระบบ</h2><form id="lhp-login-form"><label>อีเมล<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="name@example.com"></label><label>รหัสผ่าน<div class="lhp-password-wrap"><input id="lhp-login-password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="รหัสผ่านของคุณ"><button type="button" data-toggle-password="lhp-login-password">แสดง</button></div></label><label class="lhp-remember"><input type="checkbox" id="lhp-remember" checked> จดจำการเข้าสู่ระบบในอุปกรณ์นี้</label><button class="lhp-auth-primary" type="submit" id="lhp-login">เข้าสู่ระบบ</button></form><div class="lhp-auth-links"><button class="lhp-auth-link" type="button" id="lhp-forgot">ลืมรหัสผ่าน?</button><button class="lhp-auth-link" type="button" id="lhp-show-signup">ยังไม่มีบัญชี? สมัครสมาชิก</button></div></section>' +
+      '<section class="lhp-auth-screen" id="lhp-signup-screen" hidden><h2>สมัครสมาชิก</h2><form id="lhp-signup-form"><label>ชื่อผู้ใช้<input name="display_name" type="text" autocomplete="nickname" maxlength="60" required placeholder="ชื่อที่ต้องการให้แสดง"></label><label>อีเมล<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="name@example.com"></label><label>รหัสผ่าน<div class="lhp-password-wrap"><input id="lhp-signup-password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="อย่างน้อย 8 ตัวอักษร"><button type="button" data-toggle-password="lhp-signup-password">แสดง</button></div></label><button class="lhp-auth-primary" type="submit" id="lhp-signup">สร้างบัญชี</button></form><button class="lhp-auth-link" type="button" id="lhp-show-login">มีบัญชีอยู่แล้ว? กลับไปเข้าสู่ระบบ</button></section>' +
+      '<section class="lhp-auth-screen" id="lhp-confirm-screen" hidden><h2>ยืนยันอีเมลของคุณ</h2><p class="lhp-auth-muted">เราส่งลิงก์ยืนยันไปที่ <strong id="lhp-confirm-email"></strong> กรุณากดลิงก์ในอีเมลเพื่อเปิดใช้งานบัญชี</p><button class="lhp-auth-primary" type="button" id="lhp-resend-confirm">ส่งลิงก์ยืนยันอีกครั้ง</button><button class="lhp-auth-link" type="button" id="lhp-back-login">กลับไปหน้าเข้าสู่ระบบ</button></section>' +
+      '<p id="lhp-auth-message" role="status" aria-live="polite"></p><small>บัญชีแต่ละบัญชีจะเห็นเฉพาะข้อมูลของตนเอง</small></section>';
     const style = document.createElement('style');
-    style.textContent = '#lhp-auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f7f5;color:#20342b;font-family:Tahoma,Arial,sans-serif}#lhp-auth-gate .lhp-auth-card{width:min(100%,430px);background:#fff;border:1px solid #e1e9e4;border-radius:22px;padding:30px;box-shadow:0 18px 55px rgba(30,65,48,.09)}.lhp-auth-brand{width:46px;height:46px;display:grid;place-items:center;background:#24765d;color:#fff;border-radius:14px;font-weight:800;margin-bottom:18px}#lhp-auth-gate h1{font-size:23px;margin:0 0 8px}#lhp-auth-gate .lhp-auth-muted,#lhp-auth-gate small{color:#718078;font-size:13px;line-height:1.6}#lhp-auth-form{display:grid;gap:14px;margin-top:22px}#lhp-auth-form label{display:grid;gap:6px;font-size:13px;font-weight:700}#lhp-auth-form input{padding:12px;border:1px solid #dce6df;border-radius:10px;font:inherit}.lhp-password-wrap{display:flex;gap:7px}.lhp-password-wrap input{min-width:0;flex:1}.lhp-password-wrap button{border:1px solid #dce6df;background:#f6faf7;border-radius:9px;padding:0 12px;color:#24765d;cursor:pointer}.lhp-remember{display:flex!important;grid-template-columns:18px 1fr;align-items:center;gap:8px!important;font-weight:400!important}.lhp-remember input{width:16px;height:16px;padding:0}#lhp-auth-form input:focus{outline:2px solid #cde6d9;border-color:#24765d}.lhp-auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.lhp-auth-primary,.lhp-auth-secondary{border:0;border-radius:10px;padding:12px;font-weight:700;cursor:pointer}.lhp-auth-primary{background:#24765d;color:white}.lhp-auth-secondary{background:#e8f3ee;color:#24765d}.lhp-auth-link{margin-top:14px;background:none;border:0;color:#24765d;cursor:pointer}#lhp-auth-message{min-height:22px;color:#9b4b38;font-size:12px;line-height:1.6}#lhp-auth-gate small{display:block}#lhp-user-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#lhp-user-actions button{border:1px solid #dce6df;background:#fff;border-radius:9px;padding:7px 10px;color:#24765d;font-size:12px;cursor:pointer}#lhp-admin-modal{position:fixed;inset:0;z-index:9999;background:rgba(18,35,27,.55);display:none;place-items:center;padding:18px}#lhp-admin-modal.open{display:grid}#lhp-admin-modal .panel{background:#fff;width:min(100%,980px);max-height:90vh;overflow:auto;border-radius:16px;padding:20px;color:#20342b}#lhp-admin-modal table{width:100%;border-collapse:collapse;font-size:12px}#lhp-admin-modal th,#lhp-admin-modal td{padding:9px;border-bottom:1px solid #e5ece7;text-align:left;vertical-align:middle}#lhp-admin-modal input{width:74px;padding:6px;border:1px solid #dce6df;border-radius:7px}#lhp-admin-modal button{cursor:pointer}#lhp-admin-modal .admin-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}#lhp-admin-modal .admin-note{color:#718078;font-size:12px}';
+    style.textContent = '#lhp-auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f7f5;color:#20342b;font-family:Tahoma,Arial,sans-serif}#lhp-auth-gate .lhp-auth-card{width:min(100%,430px);background:#fff;border:1px solid #e1e9e4;border-radius:22px;padding:30px;box-shadow:0 18px 55px rgba(30,65,48,.09)}.lhp-auth-brand{width:46px;height:46px;display:grid;place-items:center;background:#24765d;color:#fff;border-radius:14px;font-weight:800;margin-bottom:18px}#lhp-auth-gate h1{font-size:23px;margin:0 0 8px}#lhp-auth-gate h2{font-size:18px;margin:22px 0 14px}#lhp-auth-gate .lhp-auth-muted,#lhp-auth-gate small{color:#718078;font-size:13px;line-height:1.6}#lhp-auth-gate .lhp-auth-screen[hidden]{display:none!important}#lhp-login-form,#lhp-signup-form{display:grid;gap:14px;margin-top:18px}#lhp-auth-gate form label{display:grid;gap:6px;font-size:13px;font-weight:700}#lhp-auth-gate form input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #dce6df;border-radius:10px;font:inherit}.lhp-password-wrap{display:flex;gap:7px}.lhp-password-wrap input{min-width:0;flex:1}.lhp-password-wrap button{border:1px solid #dce6df;background:#f6faf7;border-radius:9px;padding:0 12px;color:#24765d;cursor:pointer}.lhp-remember{display:flex!important;grid-template-columns:18px 1fr;align-items:center;gap:8px!important;font-weight:400!important}.lhp-remember input{width:16px!important;height:16px;padding:0}#lhp-auth-gate form input:focus{outline:2px solid #cde6d9;border-color:#24765d}.lhp-auth-primary{width:100%;border:0;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;background:#24765d;color:white}.lhp-auth-primary:disabled{opacity:.6;cursor:wait}.lhp-auth-links{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.lhp-auth-link{margin-top:12px;background:none;border:0;color:#24765d;cursor:pointer;font-size:13px;padding:4px 0}.lhp-auth-link:disabled{opacity:.6}#lhp-auth-message{min-height:22px;color:#9b4b38;font-size:12px;line-height:1.6;margin:12px 0}#lhp-auth-gate small{display:block}#lhp-user-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#lhp-user-actions button{border:1px solid #dce6df;background:#fff;border-radius:9px;padding:7px 10px;color:#24765d;font-size:12px;cursor:pointer}#lhp-admin-modal,#lhp-login-history-modal{position:fixed;inset:0;z-index:9999;background:rgba(18,35,27,.55);display:none;place-items:center;padding:18px}#lhp-admin-modal.open,#lhp-login-history-modal.open{display:grid}#lhp-admin-modal .panel,#lhp-login-history-modal .panel{background:#fff;width:min(100%,980px);max-height:90vh;overflow:auto;border-radius:16px;padding:20px;color:#20342b}#lhp-admin-modal table,#lhp-login-history-modal table{width:100%;border-collapse:collapse;font-size:12px}#lhp-admin-modal th,#lhp-admin-modal td,#lhp-login-history-modal th,#lhp-login-history-modal td{padding:9px;border-bottom:1px solid #e5ece7;text-align:left;vertical-align:middle}#lhp-admin-modal input{width:74px;padding:6px;border:1px solid #dce6df;border-radius:7px}#lhp-admin-modal button,#lhp-login-history-modal button{cursor:pointer}#lhp-admin-modal .admin-actions,#lhp-login-history-modal .admin-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px}#lhp-admin-modal .admin-note,#lhp-login-history-modal .admin-note{color:#718078;font-size:12px}';
     document.head.appendChild(style);
     document.body.appendChild(gate);
   }
-
   function message(text, ok=false) {
     const node = $('#lhp-auth-message');
     if (node) { node.textContent = text; node.style.color = ok ? '#24765d' : '#9b4b38'; }
@@ -78,7 +82,33 @@
     const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin,data:{display_name:displayName}}});
     if(error) throw error;
     if(data.session) await setUser(data.user);
-    else message('สร้างบัญชีแล้ว กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชีก่อนเข้าสู่ระบบ',true);
+    else showConfirmationScreen(email,'สร้างบัญชีแล้ว กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ',true);
+  }
+  async function resendConfirmation(email) {
+    if(!email) throw new Error('ไม่พบอีเมล กรุณากลับไปกรอกอีเมลอีกครั้ง');
+    const {error}=await client.auth.resend({type:'signup',email,options:{emailRedirectTo:location.origin}});
+    if(error) {
+      if(error.code==='over_email_send_rate_limit'||/rate limit|after \d+ seconds/i.test(error.message||'')) {
+        throw new Error('ระบบจำกัดการส่งอีเมลชั่วคราว กรุณารอสักครู่แล้วลองใหม่อีกครั้ง');
+      }
+      throw error;
+    }
+    showConfirmationScreen(email,'ส่งลิงก์ยืนยันฉบับใหม่แล้ว กรุณาเปิดอีเมลฉบับล่าสุด',true);
+  }
+  function showAuthScreen(name) {
+    ['login','signup','confirm'].forEach(key=>{
+      const node=$('#lhp-'+key+'-screen');
+      if(node) node.hidden=key!==name;
+    });
+    const msg=$('#lhp-auth-message');
+    if(msg) msg.textContent='';
+  }
+  function showConfirmationScreen(email,text,ok=false) {
+    pendingConfirmationEmail=String(email||pendingConfirmationEmail||'').trim().toLowerCase();
+    showAuthScreen('confirm');
+    const target=$('#lhp-confirm-email');
+    if(target) target.textContent=pendingConfirmationEmail;
+    message(text,ok);
   }
   async function login(email,password) {
     const {data,error}=await client.auth.signInWithPassword({email,password});
@@ -107,33 +137,53 @@
     });
   }
   function bindAuthForm() {
-    $('#lhp-auth-form')?.addEventListener('submit',async e=>{
-      e.preventDefault(); const form=new FormData(e.currentTarget);
-      const email=String(form.get('email')||'').trim().toLowerCase(), password=String(form.get('password')||'');
-      const button=$('#lhp-login'); button.disabled=true; message('กำลังเข้าสู่ระบบ…',true);
+    const remember=$('#lhp-remember');
+    if(remember) remember.checked=localStorage.getItem('lhp_remember_login')!=='false';
+    remember?.addEventListener('change',()=>localStorage.setItem('lhp_remember_login',String(remember.checked)));
+    $('#lhp-login-form')?.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const form=new FormData(e.currentTarget);
+      const email=String(form.get('email')||'').trim().toLowerCase();
+      const password=String(form.get('password')||'');
+      const button=$('#lhp-login');
+      button.disabled=true;message('กำลังเข้าสู่ระบบ…',true);
       try { await login(email,password); }
-      catch(error){message(error.message||'เข้าสู่ระบบไม่สำเร็จ');}
-      finally{button.disabled=false;}
+      catch(error) {
+        const msg=String(error.message||'');
+        if(error.code==='email_not_confirmed'||/email not confirmed/i.test(msg)) {
+          showConfirmationScreen(email,'อีเมลนี้ยังไม่ได้รับการยืนยัน กรุณาส่งลิงก์ยืนยันใหม่',false);
+        } else message(msg||'เข้าสู่ระบบไม่สำเร็จ');
+      } finally {button.disabled=false;}
     });
-    $('#lhp-signup')?.addEventListener('click',async()=>{
-      const form=new FormData($('#lhp-auth-form'));
-      const email=String(form.get('email')||'').trim().toLowerCase(),password=String(form.get('password')||''),displayName=String(form.get('display_name')||'').trim();
-      if(!displayName){$('#lhp-name-label').hidden=false;message('กรุณากรอกชื่อผู้ใช้ก่อนสร้างบัญชี');$('#lhp-name-label input').focus();return;}
-      if(!email||password.length<8){message('กรอกอีเมลและรหัสผ่านอย่างน้อย 8 ตัวอักษร');return;}
+    $('#lhp-signup-form')?.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const form=new FormData(e.currentTarget);
+      const email=String(form.get('email')||'').trim().toLowerCase();
+      const password=String(form.get('password')||'');
+      const displayName=String(form.get('display_name')||'').trim();
+      if(!displayName||!email||password.length<8){message('กรุณากรอกชื่อ อีเมล และรหัสผ่านอย่างน้อย 8 ตัวอักษร');return;}
       const button=$('#lhp-signup');button.disabled=true;message('กำลังสร้างบัญชี…',true);
-      try{await signup(email,password,displayName);}catch(error){message(error.message||'สร้างบัญชีไม่สำเร็จ');}
+      try {await signup(email,password,displayName);}
+      catch(error){message(error.message||'สร้างบัญชีไม่สำเร็จ');}
       finally{button.disabled=false;}
     });
-    $('#lhp-toggle-password')?.addEventListener('click',()=>{
-      const field=$('#lhp-password'),show=field.type==='password';field.type=show?'text':'password';
-      $('#lhp-toggle-password').textContent=show?'ซ่อน':'แสดง';
-      $('#lhp-toggle-password').setAttribute('aria-pressed',String(show));
-      $('#lhp-toggle-password').setAttribute('aria-label',show?'ซ่อนรหัสผ่าน':'แสดงรหัสผ่าน');
-    });
-    
+    document.querySelectorAll('[data-toggle-password]').forEach(button=>button.addEventListener('click',()=>{
+      const field=$('#'+button.dataset.togglePassword),show=field.type==='password';
+      field.type=show?'text':'password';button.textContent=show?'ซ่อน':'แสดง';
+      button.setAttribute('aria-pressed',String(show));
+    }));
+    $('#lhp-show-signup')?.addEventListener('click',()=>showAuthScreen('signup'));
+    $('#lhp-show-login')?.addEventListener('click',()=>showAuthScreen('login'));
+    $('#lhp-back-login')?.addEventListener('click',()=>showAuthScreen('login'));
     $('#lhp-forgot')?.addEventListener('click',async()=>{
-      const email=String(new FormData($('#lhp-auth-form')).get('email')||'').trim().toLowerCase();
+      const email=String(new FormData($('#lhp-login-form')).get('email')||'').trim().toLowerCase();
       try{await forgot(email);}catch(error){message(error.message||'ส่งลิงก์ไม่สำเร็จ');}
+    });
+    $('#lhp-resend-confirm')?.addEventListener('click',async()=>{
+      const button=$('#lhp-resend-confirm');button.disabled=true;
+      try{await resendConfirmation(pendingConfirmationEmail); }
+      catch(error){message(error.message||'ส่งลิงก์ยืนยันไม่สำเร็จ');}
+      finally{button.disabled=false;}
     });
   }
   async function openLoginHistory() {
@@ -196,8 +246,6 @@
       if(!response.ok||!config.url||!config.publishableKey)throw new Error(config.error||'ยังไม่ได้ตั้งค่า Supabase ในระบบ');
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js');
       const remember=$('#lhp-remember');
-      if(remember) remember.checked=localStorage.getItem('lhp_remember_login')!=='false';
-      remember?.addEventListener('change',()=>localStorage.setItem('lhp_remember_login',String(remember.checked)));
       const storage={
         getItem:key=>(remember?.checked?localStorage:sessionStorage).getItem(key),
         setItem:(key,value)=>(remember?.checked?localStorage:sessionStorage).setItem(key,value),
@@ -207,9 +255,12 @@
       bindAuthForm();
       const {data,error}=await client.auth.getSession();
       if(error)throw error;
-      const recoveryFlow=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery';
+      const hashParams=new URLSearchParams(location.hash.slice(1));
+      const recoveryFlow=hashParams.get('type')==='recovery';
+      const authError=hashParams.get('error_description')||hashParams.get('error');
       if(recoveryFlow) showRecoveryForm();
-      else if(data.session)await setUser(data.session.user);else setUser(null);
+      else if(data.session)await setUser(data.session.user);
+      else {setUser(null); if(authError) message('ลิงก์ยืนยันไม่สำเร็จหรือหมดอายุ กรุณาขอลิงก์ยืนยันฉบับใหม่');}
       client.auth.onAuthStateChange(async(event,session)=>{
         if(event==='SIGNED_IN'&&session?.user){try{await setUser(session.user);}catch(error){message(error.message);}}
         if(event==='PASSWORD_RECOVERY'){showRecoveryForm();}
