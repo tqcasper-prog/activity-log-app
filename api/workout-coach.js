@@ -241,7 +241,7 @@ module.exports = async function workoutCoach(req,res) {
     const upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
       method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
       body:JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
-        generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:1200,thinkingConfig:{thinkingLevel:"MINIMAL"}}})
+        generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000,thinkingConfig:{thinkingLevel:"MINIMAL"}}})
     });
     const result=await upstream.json().catch(()=>({}));
     if(!upstream.ok) {
@@ -249,9 +249,34 @@ module.exports = async function workoutCoach(req,res) {
       const detail=result?.error?.message||"Gemini API ไม่สามารถตอบคำขอได้";
       return json(res,upstream.status===429?429:502,{error:upstream.status===429?"โควต้าหรือจำนวนคำขอ Gemini Free Tier ถึงขีดจำกัดแล้ว กรุณาลองใหม่ภายหลัง":detail.slice(0,220)});
     }
-    const raw=result?.candidates?.[0]?.content?.parts?.map(part=>part.text||"").join("");
-    if(!raw) { await refundQuota(); return json(res,502,{error:"Gemini ไม่ได้ส่งข้อความตอบกลับ กรุณาลองใหม่"}); }
-    let parsed; try{parsed=JSON.parse(raw)}catch{const match=raw.match(/\\{[\\s\\S]*\\}/);try{if(!match)throw new Error("no JSON");parsed=JSON.parse(match[0])}catch{await refundQuota();return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}}
+    const candidate=result?.candidates?.[0];
+    const raw=candidate?.content?.parts?.map(part=>part.text||"").join("").trim();
+    if(!raw) {
+      await refundQuota();
+      const reason=candidate?.finishReason||result?.promptFeedback?.blockReason||"EMPTY_RESPONSE";
+      return json(res,502,{error:reason==="MAX_TOKENS"?"Gemini สร้างคำตอบยาวเกินขีดจำกัด กรุณาส่งคำถามอีกครั้ง":reason==="SAFETY"?"Gemini ไม่สามารถตอบคำถามนี้ได้เนื่องจากข้อจำกัดด้านความปลอดภัย":"Gemini ไม่ได้ส่งข้อความตอบกลับ กรุณาลองใหม่",finishReason:reason});
+    }
+    let parsed;
+    try {
+      let candidateText=raw;
+      if(candidateText.startsWith("```")) {
+        const firstNewline=candidateText.indexOf("\n");
+        const lastFence=candidateText.lastIndexOf("```");
+        if(firstNewline>=0&&lastFence>firstNewline) candidateText=candidateText.slice(firstNewline+1,lastFence).trim();
+      }
+      try { parsed=JSON.parse(candidateText); }
+      catch {
+        const firstObject=candidateText.indexOf("{");
+        const lastObject=candidateText.lastIndexOf("}");
+        if(firstObject<0||lastObject<=firstObject) throw new Error("JSON object not found");
+        parsed=JSON.parse(candidateText.slice(firstObject,lastObject+1));
+      }
+      if(!parsed||typeof parsed!=="object"||Array.isArray(parsed)) throw new Error("JSON root is not an object");
+    } catch(error) {
+      await refundQuota();
+      const reason=candidate?.finishReason||"MALFORMED_JSON";
+      return json(res,502,{error:reason==="MAX_TOKENS"?"Gemini ส่งคำตอบไม่ครบเนื่องจากความยาวเกินกำหนด กรุณาส่งอีกครั้ง":"Gemini ส่งข้อมูลกลับมาไม่ครบรูปแบบ กรุณาส่งอีกครั้ง",finishReason:reason});
+    }
     const plan=parsed.plan&&typeof parsed.plan==="object"?parsed.plan:{};
     const planEvidenceIds=cleanEvidenceIds(plan.evidenceIds);
     const safeItems=Array.isArray(plan.items)?plan.items.slice(0,6).map(item=>{
