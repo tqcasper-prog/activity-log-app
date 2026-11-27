@@ -162,14 +162,15 @@
 
   function renderEvidenceLinks(sources,label='แหล่งอ้างอิง') {
     if(!Array.isArray(sources)||!sources.length) return '';
-    const links=sources.map(source=>'<li><a href="'+esc(source.url)+'" target="_blank" rel="noopener noreferrer">'+esc(source.title)+' ('+esc(source.year)+')</a> · '+esc(source.organization)+'</li>').join('');
+    const links=sources.map(source=>'<li><a href="'+esc(source.url)+'" target="_blank" rel="noopener noreferrer">'+esc(source.title)+' ('+esc(source.year)+')</a> · '+esc(source.organization)+'<small>'+esc(source.evidenceType||'')+(source.limitations?' · ขอบเขต/ข้อจำกัด: '+esc(source.limitations):'')+'</small></li>').join('');
     return '<div class="evidence-links"><b>'+esc(label)+'</b><ul>'+links+'</ul></div>';
   }
   function renderEvidencePanel(plan) {
     const summary=plan?.evidenceSummary?'<p>'+esc(plan.evidenceSummary)+'</p>':'';
     const links=renderEvidenceLinks(plan?.evidence,'หลักฐานระดับการวางแผน');
     if(!summary&&!links) return '';
-    return '<section class="evidence-panel"><b>ฐานความรู้ที่ใช้ประกอบแผน</b>'+summary+links+'<small>แหล่งอ้างอิงสนับสนุนหลักการหรือคำแนะนำตามขอบเขตที่ระบุ ไม่ได้ยืนยันว่าทุกท่าจะเหมาะกับทุกคน</small></section>';
+    const version=plan?.evidenceLibraryVersion?'<small>ฐานความรู้รุ่น '+esc(plan.evidenceLibraryVersion)+'</small>':'';
+    return '<section class="evidence-panel"><b>ฐานความรู้ที่ใช้ประกอบแผน</b>'+version+summary+links+'<small>แหล่งอ้างอิงสนับสนุนหลักการหรือคำแนะนำตามขอบเขตที่ระบุ ไม่ได้ยืนยันว่าทุกท่าจะเหมาะกับทุกคน</small></section>';
   }
   function renderPlanTable(plan) {
     const evidencePanel=renderEvidencePanel(plan);
@@ -195,7 +196,7 @@
     const prior=(data.coachMessages||[]).filter(message=>message.date===selectedDate).slice(-6).map(message=>({role:message.role==='user'?'user':'assistant',text:message.role==='user'?message.text:(message.result?.reply||'')}));
     const history=data.workouts.filter(item=>item.date<=selectedDate).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12).map(item=>({date:item.date,exercise:item.exercise,sets:item.sets,reps:item.reps,effort:item.effort,notes:item.notes}));
     const recentMeasurements=data.measurements.filter(item=>item.date<=selectedDate).slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map(item=>({date:item.date,weight:item.weight,height:item.height,waist:item.waist,sleep:item.sleep,water:item.water,restingHeartRate:item.restingHeartRate,energy:item.energy,soreness:item.soreness,pain:item.pain}));
-    const recentReadiness=(data.readinessLogs||[]).filter(item=>item.date<=selectedDate).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7).map(item=>({date:item.date,sleep:item.sleep,daytimeRestMinutes:item.daytimeRestMinutes,trainingMinutes:item.trainingMinutes,energy:item.energy,soreness:item.soreness,stress:item.stress,pain:item.pain,notes:item.notes}));
+    const recentReadiness=(data.readinessLogs||[]).filter(item=>item.date<=selectedDate).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7).map(item=>({date:item.date,sleep:item.sleep,daytimeRestMinutes:item.daytimeRestMinutes,trainingMinutes:item.trainingMinutes,energy:item.energy,soreness:item.soreness,stress:item.stress,pain:item.pain}));
     const payload={date:selectedDate,message:text||'จากประวัติที่บันทึกไว้ ช่วยประเมินว่าควรฝึกหรือพักวันนี้',conversation:prior,workouts:history,trainingProfile:data.trainingProfile||{},bodyHistory:data.trainingProfile?.shareWithGemini===false?[]:recentMeasurements,readinessHistory:data.trainingProfile?.shareWithGemini===false?[]:recentReadiness,trainingProfile:data.trainingProfile?.shareWithGemini===false?{}:(data.trainingProfile||{}),existingPlan:(data.workoutPlans||[]).filter(plan=>plan.date===selectedDate).slice(-1)[0]||null};
     if(text){data.coachMessages.push({role:'user',text,date:selectedDate,createdAt:new Date().toISOString()});data.coachMessages=data.coachMessages.slice(-16);renderCoachMessagesOnly();}
     submit.disabled=true;submit.textContent='กำลังคิดแผน…';
