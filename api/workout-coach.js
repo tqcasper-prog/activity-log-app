@@ -1,6 +1,7 @@
 // Vercel serverless endpoint for the exercise coach.
 // The Gemini key is read only from server-side environment variables.
 const evidenceLibrary = require("../data/exercise-evidence.json");
+const { randomUUID } = require("crypto");
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 15;
 const requestCounts = new Map();
@@ -36,6 +37,18 @@ module.exports = async function workoutCoach(req,res) {
   if(origin&&host) { try { if(new URL(origin).host!==host) return json(res,403,{error:"คำขอมาจากเว็บไซต์ที่ไม่ได้รับอนุญาต"}); } catch { return json(res,403,{error:"ไม่สามารถตรวจสอบแหล่งที่มาของคำขอได้"}); } }
   const ip=String(req.headers["x-forwarded-for"]||req.socket?.remoteAddress||"unknown").split(",")[0].trim();
   if(!allowRequest(ip)) return json(res,429,{error:"ส่งข้อความถี่เกินไป กรุณารอสักครู่แล้วลองใหม่"});
+  const supabaseUrl=process.env.SUPABASE_URL, publishableKey=process.env.SUPABASE_PUBLISHABLE_KEY;
+  if(!supabaseUrl||!publishableKey) return json(res,503,{error:"ยังไม่ได้ตั้งค่า Supabase สำหรับระบบสมาชิก"});
+  const authorization=String(req.headers.authorization||"");
+  const token=authorization.match(/^Bearer\\s+(.+)$/i)?.[1];
+  if(!token) return json(res,401,{error:"กรุณาเข้าสู่ระบบก่อนใช้โค้ชออกกำลังกาย"});
+  let authenticatedUser;
+  try {
+    const authResponse=await fetch(supabaseUrl+"/auth/v1/user",{headers:{apikey:publishableKey,Authorization:"Bearer "+token}});
+    if(!authResponse.ok) return json(res,401,{error:"เซสชันหมดอายุหรือไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่"});
+    authenticatedUser=await authResponse.json();
+    if(!authenticatedUser?.id) return json(res,401,{error:"ไม่สามารถยืนยันบัญชีผู้ใช้ได้"});
+  } catch { return json(res,503,{error:"ตรวจสอบบัญชีผู้ใช้ไม่สำเร็จ กรุณาลองใหม่"}); }
   const apiKey=process.env.GEMINI_API_KEY;
   if(!apiKey) return json(res,503,{error:"ยังไม่ได้ตั้งค่า GEMINI_API_KEY ใน Vercel"});
   const body=typeof req.body==="string" ? (()=>{try{return JSON.parse(req.body)}catch{return null}})() : req.body;
@@ -78,7 +91,6 @@ module.exports = async function workoutCoach(req,res) {
     items:Array.isArray(body.existingPlan.items)?body.existingPlan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Number(item?.sets)||0,reps:cleanText(item?.reps,40)})):[]
   }:null;
   const sourceById = new Map(evidenceLibrary.sources.map(source => [source.id, source]));
-  const exerciseById = new Map(evidenceLibrary.exercises.map(exercise => [exercise.id, exercise]));
   const cleanEvidenceIds = value => Array.isArray(value)
     ? [...new Set(value.filter(id => typeof id === "string" && sourceById.has(id)))].slice(0, 8)
     : [];
@@ -86,10 +98,47 @@ module.exports = async function workoutCoach(req,res) {
     const source = sourceById.get(id);
     return source ? { id:source.id, title:source.title, organization:source.organization, year:source.year, evidenceType:source.evidenceType, url:source.url, limitations:source.limitations } : null;
   };
+  let catalogRows;
+  try {
+    const catalogResponse=await fetch(supabaseUrl+"/rest/v1/exercise_catalog?select=id,name_th,name_en,category,movement_pattern,primary_muscles,secondary_muscles,equipment,level,exercise_type,setup,steps,breathing,common_mistakes,cautions,progressions,regressions,source_ids,evidence_note&is_active=eq.true&order=category.asc&limit=200",{
+      headers:{apikey:publishableKey,Authorization:"Bearer "+token}
+    });
+    if(!catalogResponse.ok) return json(res,502,{error:"โหลดคลังท่าฝึกไม่สำเร็จ กรุณาลองใหม่"});
+    catalogRows=await catalogResponse.json();
+  } catch { return json(res,503,{error:"เชื่อมต่อฐานข้อมูลท่าฝึกไม่สำเร็จ"}); }
+  const catalogExercises=catalogRows.map(row=>({
+    id:row.id,name:row.name_th+" ("+row.name_en+")",movementPattern:row.movement_pattern,
+    targetMuscles:[...(row.primary_muscles||[]),...(row.secondary_muscles||[])].join(", "),
+    equipment:row.equipment||[],level:row.level,sourceIds:row.source_ids||[],
+    steps:Array.isArray(row.steps)?row.steps:[],breathing:row.breathing,
+    caution:(row.cautions||[]).join(" "),progression:(row.progressions||[]).join(" "),
+    setup:row.setup,commonMistakes:row.common_mistakes||[],evidenceNote:row.evidence_note
+  }));
+  const exerciseById = new Map(catalogExercises.map(exercise => [exercise.id, exercise]));
+  const requestId=randomUUID();
+  let quotaReservation=null;
+  try {
+    const quotaResponse=await fetch(supabaseUrl+"/rest/v1/rpc/consume_gemini_quota",{
+      method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},
+      body:JSON.stringify({p_request_id:requestId})
+    });
+    if(!quotaResponse.ok) return json(res,502,{error:"ตรวจสอบโควต้าบัญชีไม่สำเร็จ กรุณาลองใหม่"});
+    quotaReservation=await quotaResponse.json();
+  } catch { return json(res,503,{error:"เชื่อมต่อระบบโควต้าสมาชิกไม่สำเร็จ"}); }
+  if(!quotaReservation?.allowed) {
+    const reason=quotaReservation?.reason;
+    const text=reason==="quota_disabled"?"บัญชีนี้ยังไม่ได้รับโควต้าการใช้ Gemini จากผู้ดูแลระบบ":
+      reason==="quota_exceeded"?"คุณใช้โควต้าการถาม Gemini ถึงขีดจำกัดแล้ว":
+      reason==="account_unavailable"?"บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ":
+      "คำขอนี้ไม่สามารถใช้โควต้าได้ กรุณาลองใหม่";
+    return json(res,reason==="quota_exceeded"||reason==="quota_disabled"?429:403,{error:text,quota:quotaReservation});
+  }
+  const refundQuota=async()=>{try{await fetch(supabaseUrl+"/rest/v1/rpc/refund_gemini_quota",{method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_request_id:requestId})});}catch{}};
   const evidenceContext = {
     version: evidenceLibrary.version,
+    catalogCount:catalogExercises.length,
     principles: evidenceLibrary.principles.map(({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations}) => ({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations})),
-    exercises: evidenceLibrary.exercises.filter(exercise => exercise.equipment.includes("ไม่มีอุปกรณ์")).map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,evidenceNote})),
+    exercises: catalogExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,setup,commonMistakes,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,setup,commonMistakes,evidenceNote})),
     sources: evidenceLibrary.sources.map(({id,title,organization,year,evidenceType,summary,limitations,url}) => ({id,title,organization,year,evidenceType,summary,limitations,url})),
     coverageLimitations: evidenceLibrary.coverageLimitations
   };
@@ -99,7 +148,7 @@ module.exports = async function workoutCoach(req,res) {
 เลือกท่าได้เฉพาะ exerciseId ที่อยู่ใน evidenceBase.exercises เท่านั้น ห้ามแต่งชื่อท่าใหม่หรืออ้าง exerciseId ที่ไม่มีอยู่ ระบุ rationale ว่าเลือกท่านั้นเพราะอะไรเมื่อเทียบกับเป้าหมาย ประสบการณ์ อุปกรณ์ และความพร้อม
 อ้างอิงได้เฉพาะ source id ที่มีอยู่ใน evidenceBase.sources เท่านั้น หากไม่พบหลักฐานตรง ให้บอกข้อจำกัด ห้ามสร้างชื่อแหล่ง ปี DOI หรือลิงก์ขึ้นเอง
 สำหรับผู้เริ่มต้นให้เน้นความสม่ำเสมอ การควบคุมท่า และการเพิ่มระดับทีละน้อย ไม่บังคับให้เริ่มด้วยปริมาณสูงประมาณ 10 เซ็ตต่อกลุ่มกล้ามเนื้อต่อสัปดาห์ ตัวเลขดังกล่าวเป็นข้อมูลประกอบการเพิ่มปริมาณในอนาคต ไม่ใช่เกณฑ์เริ่มต้นสำหรับทุกคน ไม่จำเป็นต้องฝึกจนหมดแรงทุกเซ็ต
-พิจารณาความถี่รายสัปดาห์ ปริมาณฝึก การพัก และการกระจายกล้ามเนื้อ ห้ามฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน หากอุปกรณ์ที่มีไม่สามารถฝึกกล้ามเนื้อบางกลุ่มได้เพียงพอ ให้บอกตรง ๆ โดยเฉพาะข้อจำกัดเรื่องท่าดึง/กล้ามเนื้อหลังในคลังท่าไม่มีอุปกรณ์ ห้ามใช้ท่าที่ไม่ใช่ท่าดึงมาอ้างว่าทดแทนได้
+พิจารณาความถี่รายสัปดาห์ ปริมาณฝึก การพัก และการกระจายกล้ามเนื้อ ห้ามฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน เลือกท่าจากคลังตามอุปกรณ์ที่ผู้ใช้ระบุเท่านั้น หากอุปกรณ์ไม่รองรับการฝึกกล้ามเนื้อกลุ่มใดอย่างเพียงพอ ให้บอกข้อจำกัดตรง ๆ และห้ามอ้างท่าคนละรูปแบบว่าทดแทนกันได้
 ใช้โปรไฟล์การฝึก ข้อมูลร่างกายย้อนหลัง ความพร้อมรายวัน ข้อความ และประวัติการฝึกที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ พิจารณาน้ำหนัก/ส่วนสูงเป็นแนวโน้ม ไม่ใช้ BMI ตัดสินความสามารถฝึก ตรวจสอบการนอน พลังงาน ความล้ากล้ามเนื้อ และอาการเจ็บก่อนเพิ่มความหนัก หากข้อมูลขัดแย้งหรือไม่พอให้ถามก่อน ไม่คาดเดาค่าที่หายไป
 ความปลอดภัย: ห้ามวินิจฉัยโรคหรือการบาดเจ็บ หากมีอาการเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้แนะนำหยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก อย่าเพิ่มความหนักหากล้ามาก นอนน้อย หรือฟื้นตัวไม่ดี และให้มีวันพัก
 สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย พร้อมวิธีเตรียมท่า ขั้นตอน 3-6 ข้อ การหายใจ ข้อผิดพลาดที่พบบ่อย และข้อควรระวัง
@@ -115,12 +164,13 @@ module.exports = async function workoutCoach(req,res) {
     });
     const result=await upstream.json().catch(()=>({}));
     if(!upstream.ok) {
+      await refundQuota();
       const detail=result?.error?.message||"Gemini API ไม่สามารถตอบคำขอได้";
       return json(res,upstream.status===429?429:502,{error:upstream.status===429?"โควต้าหรือจำนวนคำขอ Gemini Free Tier ถึงขีดจำกัดแล้ว กรุณาลองใหม่ภายหลัง":detail.slice(0,220)});
     }
     const raw=result?.candidates?.[0]?.content?.parts?.map(part=>part.text||"").join("");
-    if(!raw) return json(res,502,{error:"Gemini ไม่ได้ส่งข้อความตอบกลับ กรุณาลองใหม่"});
-    let parsed; try{parsed=JSON.parse(raw)}catch{const match=raw.match(/\\{[\\s\\S]*\\}/);try{if(!match)throw new Error("no JSON");parsed=JSON.parse(match[0])}catch{return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}}
+    if(!raw) { await refundQuota(); return json(res,502,{error:"Gemini ไม่ได้ส่งข้อความตอบกลับ กรุณาลองใหม่"}); }
+    let parsed; try{parsed=JSON.parse(raw)}catch{const match=raw.match(/\\{[\\s\\S]*\\}/);try{if(!match)throw new Error("no JSON");parsed=JSON.parse(match[0])}catch{await refundQuota();return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}}
     const plan=parsed.plan&&typeof parsed.plan==="object"?parsed.plan:{};
     const planEvidenceIds=cleanEvidenceIds(plan.evidenceIds);
     const safeItems=Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>{
@@ -133,9 +183,9 @@ module.exports = async function workoutCoach(req,res) {
         exerciseId,exercise:catalog.name,sets:Math.min(3,Math.max(0,Number(item?.sets)||0)),
         reps:cleanText(item?.reps,40),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),
         targetMuscles:catalog.targetMuscles,note:cleanText(item?.note,180),rationale:cleanText(item?.rationale,500),
-        setup:cleanText(item?.setup,300)||"จัดพื้นที่ให้โล่ง ใช้เก้าอี้หรือจุดพยุงที่มั่นคง และเตรียมท่าให้พร้อมก่อนเริ่ม",
+        setup:catalog.setup||cleanText(item?.setup,300)||"เตรียมอุปกรณ์และพื้นที่ให้มั่นคงก่อนเริ่ม",
         steps:catalog.steps,breathing:catalog.breathing,
-        commonMistakes:cleanText(item?.commonMistakes,260)||"หลีกเลี่ยงการเหวี่ยงตัว เร่งจังหวะ หรือฝืนช่วงการเคลื่อนไหว",
+        commonMistakes:catalog.commonMistakes.join(" · ")||cleanText(item?.commonMistakes,260)||"หลีกเลี่ยงการเหวี่ยงตัว เร่งจังหวะ หรือฝืนช่วงการเคลื่อนไหว",
         caution:catalog.caution,evidenceIds:resolvedEvidenceIds,
         evidence:resolvedEvidenceIds.map(publicSource).filter(Boolean)
       };
@@ -153,6 +203,6 @@ module.exports = async function workoutCoach(req,res) {
     const responseEvidenceIds=cleanEvidenceIds(parsed.evidenceIds);
     const responseEvidence=responseEvidenceIds.map(publicSource).filter(Boolean);
     const usage=result?.usageMetadata||{};
-    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
-  } catch { return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
+    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
+  } catch { await refundQuota(); return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
 };
