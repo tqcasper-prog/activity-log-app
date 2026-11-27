@@ -308,3 +308,13 @@ This update is an incremental working baseline, not a claim that all M0–M7 acc
 - Vercel environment variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` were added for Production, Preview, and Development. `GEMINI_API_KEY` remains server-side.
 - Current verification: Supabase catalog table created with RLS and 67 rows verified by SQL; security advisor reviewed. Preview deployment was built from the working branch, but full browser-based signup/login, cross-user isolation, email confirmation, admin quota interaction, and live Gemini calls still require end-to-end verification before production release.
 - Important setup consideration: Supabase Auth email confirmation and password-reset redirects must allow the deployed site URL in Auth URL Configuration. Verify the Site URL and Redirect URLs before inviting other members.
+
+
+### Account center and website preferences (2026-11-27)
+
+- Added a dedicated account center accessible from the signed-in header and main navigation.
+- Account center shows the signed-in email, display name, account role and creation date; allows updating the display name through the owner-scoped `profiles` update policy and changing the password after re-entering the current password.
+- Account center summarizes the user's body-measurement, workout, meal, activity and time-log history; shows recent body measurements and recent sign-in/sign-out events from `user_login_history`.
+- Expanded website settings with system/light/dark theme, font size, content width, compact/comfortable density, and reduced-motion preference. Settings are stored inside the authenticated user's `user_app_data` record and follow the account across devices.
+- No database schema change was needed. The implementation reuses existing profile and login-history tables and their owner-scoped RLS policies. It does not alter roles, account status, quota settings, authentication provider settings, or production configuration.
+- Verification performed: JavaScript syntax checks via the project test script are now included for `public/auth.js`; full browser end-to-end tests remain required for profile/password updates and responsive visual QA.
