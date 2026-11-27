@@ -131,7 +131,8 @@
   function exerciseDiagram(item) {
     const name=String(item.exercise||'').toLowerCase();
     let pose='<circle cx="42" cy="20" r="8"/><path d="M42 29 L42 57 M42 37 L25 48 M42 37 L58 48 M42 57 L29 78 M42 57 L55 78"/>';
-    if(/squat|สควอต|squat/.test(name)) pose='<circle cx="42" cy="16" r="8"/><path d="M42 25 L42 45 L27 55 L20 74 M42 45 L57 55 L64 74 M42 32 L25 40 M42 32 L59 40"/>';
+    if(/sit to stand|chair stand|ลุกขึ้นจากเก้าอี้|ลุกนั่งจากเก้าอี้/.test(name)) pose='<path d="M57 43 V78 M57 43 H78 V78 M57 58 H78"/><circle cx="29" cy="19" r="7"/><path d="M29 27 L38 48 L55 52 M38 48 L27 67 L18 78 M38 48 L49 64 L58 64 M34 36 L48 43"/>';
+    else if(/squat|สควอต/.test(name)) pose='<circle cx="42" cy="16" r="8"/><path d="M42 25 L42 45 L27 55 L20 74 M42 45 L57 55 L64 74 M42 32 L25 40 M42 32 L59 40"/>';
     else if(/push|วิดพื้น|พิงกำแพง/.test(name)) pose='<circle cx="19" cy="43" r="7"/><path d="M27 46 L57 51 L72 70 M40 49 L35 70 M57 51 L65 32 L78 30 M40 49 L25 60"/>';
     else if(/bridge|บริดจ์/.test(name)) pose='<circle cx="16" cy="57" r="7"/><path d="M24 58 L42 38 L62 53 L73 73 M42 38 L48 67 M62 53 L67 73"/>';
     else if(/bird|เบิร์ด/.test(name)) pose='<circle cx="30" cy="30" r="7"/><path d="M37 36 L58 47 L75 40 M48 42 L30 57 L15 57 M58 47 L62 69 M58 47 L78 60"/>';
@@ -155,7 +156,8 @@
         }
         if(!node.isConnected) return;
         const images=(media.images||[]).slice(0,2);
-        node.innerHTML=(images.length?'<div class="exercise-photo-grid">'+images.map(img=>'<a href="'+esc(img.pageUrl)+'" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="'+esc(img.thumbnail)+'" alt="'+esc(img.title)+'"><small>'+esc(img.title)+' · '+esc(img.license||'ตรวจสอบใบอนุญาตที่ต้นทาง')+'</small></a>').join('')+'</div>':'<p class="muted small-text">ยังไม่พบภาพที่ตรงกับหัวข้อนี้</p>')+(media.youtubeSearchUrl?'<a class="exercise-video-link" href="'+esc(media.youtubeSearchUrl)+'" target="_blank" rel="noopener noreferrer">▶ ค้นหาวิดีโอสาธิตบน YouTube</a>':'')+'<small class="media-source">ภาพจาก Wikimedia Commons · คลิกภาพเพื่อดูที่มาและใบอนุญาต</small>';
+        const fallback=kind==='exercise'?exerciseDiagram({exercise:query})+'<p class="muted small-text">ยังไม่พบภาพถ่ายที่ตรงกัน · แสดงแผนผังท่าแทน</p>':'<p class="muted small-text">ยังไม่พบภาพที่ตรงกับเนื้อหานี้ จึงไม่แสดงภาพที่ไม่เกี่ยวข้อง</p>';
+        node.innerHTML=(images.length?'<div class="exercise-photo-grid">'+images.map(img=>'<a href="'+esc(img.pageUrl)+'" target="_blank" rel="noopener noreferrer"><img loading="lazy" src="'+esc(img.thumbnail)+'" alt="'+esc(img.title)+'"><small>'+esc(img.title)+' · '+esc(img.license||'ตรวจสอบใบอนุญาตที่ต้นทาง')+'</small></a>').join('')+'</div>':fallback)+(media.youtubeSearchUrl?'<a class="exercise-video-link" href="'+esc(media.youtubeSearchUrl)+'" target="_blank" rel="noopener noreferrer">▶ ค้นหาวิดีโอสาธิตบน YouTube</a>':'')+'<small class="media-source">ภาพจาก Wikimedia Commons · คลิกภาพเพื่อดูที่มาและใบอนุญาต</small>';
       } catch { if(node.isConnected) node.innerHTML='<small class="media-source">โหลดภาพประกอบไม่สำเร็จ สามารถอ่านคำแนะนำได้ตามปกติ</small>'; }
     });
   }
