@@ -5,6 +5,9 @@ const { randomUUID } = require("crypto");
 const WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 15;
 const requestCounts = new Map();
+let exerciseCatalogCache = null;
+let exerciseCatalogCacheAt = 0;
+const EXERCISE_CATALOG_CACHE_MS = 5 * 60 * 1000;
 const responseSchema = {
   type: "OBJECT",
   properties: {
@@ -18,9 +21,7 @@ const responseSchema = {
         exerciseId: { type: "STRING" }, rationale: { type: "STRING" }, evidenceIds: { type: "ARRAY", items: { type: "STRING" } },
         exercise: { type: "STRING" }, sets: { type: "INTEGER" }, reps: { type: "STRING" },
         restSeconds: { type: "INTEGER" }, targetMuscles: { type: "STRING" }, note: { type: "STRING" },
-        setup: { type: "STRING" }, steps: { type: "ARRAY", items: { type: "STRING" } },
-        breathing: { type: "STRING" }, commonMistakes: { type: "STRING" }, caution: { type: "STRING" }
-      }, required: ["exerciseId","rationale","evidenceIds","exercise","sets","reps","restSeconds","targetMuscles","note","setup","steps","breathing","commonMistakes","caution"] } }
+      }, required: ["exerciseId","rationale","evidenceIds","exercise","sets","reps","restSeconds","targetMuscles","note"] } }
     }, required: ["date","title","reason","restDay","evidenceSummary","evidenceIds","items"] }
   }, required: ["reply","hasPlan","evidenceIds","plan"]
 };
@@ -99,13 +100,19 @@ module.exports = async function workoutCoach(req,res) {
     return source ? { id:source.id, title:source.title, organization:source.organization, year:source.year, evidenceType:source.evidenceType, url:source.url, limitations:source.limitations } : null;
   };
   let catalogRows;
-  try {
-    const catalogResponse=await fetch(supabaseUrl+"/rest/v1/exercise_catalog?select=id,name_th,name_en,category,movement_pattern,primary_muscles,secondary_muscles,equipment,level,exercise_type,setup,steps,breathing,common_mistakes,cautions,progressions,regressions,source_ids,evidence_note&is_active=eq.true&order=category.asc&limit=200",{
-      headers:{apikey:publishableKey,Authorization:"Bearer "+token}
-    });
-    if(!catalogResponse.ok) return json(res,502,{error:"โหลดคลังท่าฝึกไม่สำเร็จ กรุณาลองใหม่"});
-    catalogRows=await catalogResponse.json();
-  } catch { return json(res,503,{error:"เชื่อมต่อฐานข้อมูลท่าฝึกไม่สำเร็จ"}); }
+  if (exerciseCatalogCache && Date.now() - exerciseCatalogCacheAt < EXERCISE_CATALOG_CACHE_MS) {
+    catalogRows = exerciseCatalogCache;
+  } else {
+    try {
+      const catalogResponse=await fetch(supabaseUrl+"/rest/v1/exercise_catalog?select=id,name_th,name_en,category,movement_pattern,primary_muscles,secondary_muscles,equipment,level,exercise_type,setup,steps,breathing,common_mistakes,cautions,progressions,regressions,source_ids,evidence_note&is_active=eq.true&order=category.asc&limit=200",{
+        headers:{apikey:publishableKey,Authorization:"Bearer "+token}
+      });
+      if(!catalogResponse.ok) return json(res,502,{error:"โหลดคลังท่าฝึกไม่สำเร็จ กรุณาลองใหม่"});
+      catalogRows=await catalogResponse.json();
+      exerciseCatalogCache=Array.isArray(catalogRows)?catalogRows:null;
+      exerciseCatalogCacheAt=Date.now();
+    } catch { return json(res,503,{error:"เชื่อมต่อฐานข้อมูลท่าฝึกไม่สำเร็จ"}); }
+  }
   const catalogExercises=catalogRows.map(row=>({
     id:row.id,name:row.name_th+" ("+row.name_en+")",movementPattern:row.movement_pattern,
     targetMuscles:[...(row.primary_muscles||[]),...(row.secondary_muscles||[])].join(", "),
@@ -138,7 +145,9 @@ module.exports = async function workoutCoach(req,res) {
     version: evidenceLibrary.version,
     catalogCount:catalogExercises.length,
     principles: evidenceLibrary.principles.map(({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations}) => ({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations})),
-    exercises: catalogExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,setup,commonMistakes,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,setup,commonMistakes,evidenceNote})),
+    // Technique instructions are added from the trusted catalog after generation;
+    // send only selection metadata to Gemini to reduce prompt size and latency.
+    exercises: catalogExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote})),
     sources: evidenceLibrary.sources.map(({id,title,organization,year,evidenceType,summary,limitations,url}) => ({id,title,organization,year,evidenceType,summary,limitations,url})),
     coverageLimitations: evidenceLibrary.coverageLimitations
   };
