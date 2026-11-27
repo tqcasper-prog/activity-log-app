@@ -71,10 +71,10 @@ module.exports = async function workoutCoach(req,res) {
     }
     const raw=result?.candidates?.[0]?.content?.parts?.map(part=>part.text||"").join("");
     if(!raw) return json(res,502,{error:"Gemini ไม่ได้ส่งข้อความตอบกลับ กรุณาลองใหม่"});
-    let parsed; try{parsed=JSON.parse(raw)}catch{return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}
+    let parsed; try{parsed=JSON.parse(raw)}catch{const match=raw.match(/\\{[\\s\\S]*\\}/);try{if(!match)throw new Error("no JSON");parsed=JSON.parse(match[0])}catch{return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}}
     const plan=parsed.plan&&typeof parsed.plan==="object"?parsed.plan:{};
     const safePlan={date,title:cleanText(plan.title,100)||"แผนฝึกที่แนะนำ",reason:cleanText(plan.reason,500),restDay:Boolean(plan.restDay),
-      items:Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Math.min(20,Math.max(0,Number(item?.sets)||0)),reps:cleanText(item?.reps,40),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),targetMuscles:cleanText(item?.targetMuscles,100),note:cleanText(item?.note,180),setup:cleanText(item?.setup,300),steps:Array.isArray(item?.steps)?item.steps.slice(0,6).map(step=>cleanText(step,220)).filter(Boolean):[],breathing:cleanText(item?.breathing,220),commonMistakes:cleanText(item?.commonMistakes,260),caution:cleanText(item?.caution,260)})).filter(item=>item.exercise&&item.sets>0&&item.reps):[]};
+      items:Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Math.min(20,Math.max(0,Number(item?.sets)||0)),reps:cleanText(item?.reps,40)||((item?.reps!==undefined&&item?.reps!==null&&String(item.reps).trim()!=='')?String(item.reps).slice(0,40):''),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),targetMuscles:cleanText(item?.targetMuscles,100),note:cleanText(item?.note,180),setup:cleanText(item?.setup,300),steps:Array.isArray(item?.steps)?item.steps.slice(0,6).map(step=>cleanText(step,220)).filter(Boolean):[],breathing:cleanText(item?.breathing,220),commonMistakes:cleanText(item?.commonMistakes,260),caution:cleanText(item?.caution,260)})).filter(item=>item.exercise&&item.sets>0&&item.reps):[]};
     if(safePlan.restDay)safePlan.items=[];
     const hasPlan=Boolean(parsed.hasPlan)&&(safePlan.restDay||safePlan.items.length>0);
     const usage=result?.usageMetadata||{};
