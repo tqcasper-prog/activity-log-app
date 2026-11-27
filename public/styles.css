@@ -53,3 +53,15 @@
 .exercise-visual .ground{stroke:var(--muted);stroke-width:2}
 .exercise-visual .figure{stroke:var(--accent)}
 @media(max-width:520px){.workout-plan-table{font-size:11px}.workout-plan-table th,.workout-plan-table td{padding:8px 6px}.exercise-visual svg{width:62px;height:62px}}
+
+.gemini-quota{border:1px solid #d8e8df;background:#f5faf7;border-radius:12px;padding:12px 14px;margin:10px 0 14px;font-size:11px}
+.quota-heading,.quota-numbers{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.quota-heading{justify-content:space-between;color:var(--accent)}
+.quota-heading span{font-size:10px;color:var(--muted)}
+.quota-numbers{margin:10px 0 7px;gap:6px}
+.quota-numbers strong{font-size:17px;color:var(--accent);font-variant-numeric:tabular-nums}
+.quota-numbers span{color:var(--muted);margin-right:12px}
+.quota-track{height:7px;border-radius:20px;background:#e4eee8;overflow:hidden;margin:7px 0 9px}
+.quota-track i{display:block;height:100%;background:var(--accent);border-radius:20px}
+.gemini-quota small{display:block;color:var(--muted);line-height:1.5;margin-top:4px}
+.gemini-quota .quota-safety{color:#8b6333}
