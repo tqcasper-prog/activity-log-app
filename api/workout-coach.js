@@ -71,7 +71,7 @@ module.exports = async function workoutCoach(req,res) {
     daytimeRestMinutes:item?.daytimeRestMinutes==null||item.daytimeRestMinutes===""?null:Math.min(1440,Math.max(0,Number(item.daytimeRestMinutes))),
     trainingMinutes:item?.trainingMinutes==null||item.trainingMinutes===""?null:Math.min(600,Math.max(0,Number(item.trainingMinutes))),
     energy:item?.energy==null||item.energy===""?null:Math.min(5,Math.max(1,Number(item.energy))),soreness:item?.soreness==null||item.soreness===""?null:Math.min(5,Math.max(1,Number(item.soreness))),stress:item?.stress==null||item.stress===""?null:Math.min(5,Math.max(1,Number(item.stress))),
-    pain:cleanText(item?.pain,240),notes:cleanText(item?.notes,240)
+    pain:cleanText(item?.pain,240)
   })): [];
   const existingPlan=body.existingPlan&&typeof body.existingPlan==="object"?{
     title:cleanText(body.existingPlan.title,100),restDay:Boolean(body.existingPlan.restDay),
@@ -88,7 +88,7 @@ module.exports = async function workoutCoach(req,res) {
   };
   const evidenceContext = {
     version: evidenceLibrary.version,
-    principles: evidenceLibrary.principles.map(({id,title,summary,application,sourceIds,confidence,limitations}) => ({id,title,summary,application,sourceIds,confidence,limitations})),
+    principles: evidenceLibrary.principles.map(({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations}) => ({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations})),
     exercises: evidenceLibrary.exercises.filter(exercise => exercise.equipment.includes("ไม่มีอุปกรณ์")).map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,steps,breathing,caution,progression,evidenceNote})),
     sources: evidenceLibrary.sources.map(({id,title,organization,year,evidenceType,summary,limitations,url}) => ({id,title,organization,year,evidenceType,summary,limitations,url})),
     coverageLimitations: evidenceLibrary.coverageLimitations
@@ -140,12 +140,12 @@ module.exports = async function workoutCoach(req,res) {
         evidence:resolvedEvidenceIds.map(publicSource).filter(Boolean)
       };
     }).filter(item=>item&&item.exercise&&item.sets>0&&item.reps):[];
-    const itemEvidenceIds=[...new Set(safeItems.flatMap(item=>item.evidenceIds))];
+    const itemEvidenceIds=plan.restDay?[]:[...new Set(safeItems.flatMap(item=>item.evidenceIds))];
     const resolvedPlanEvidenceIds=[...new Set([...planEvidenceIds,...itemEvidenceIds])].slice(0,8);
     const safePlan={
       date,title:cleanText(plan.title,100)||"แผนฝึกที่แนะนำ",reason:cleanText(plan.reason,500),
       restDay:Boolean(plan.restDay),evidenceSummary:cleanText(plan.evidenceSummary,700),
-      evidenceIds:resolvedPlanEvidenceIds,evidence:resolvedPlanEvidenceIds.map(publicSource).filter(Boolean),
+      evidenceLibraryVersion:evidenceLibrary.version,evidenceIds:resolvedPlanEvidenceIds,evidence:resolvedPlanEvidenceIds.map(publicSource).filter(Boolean),
       items:safeItems
     };
     if(safePlan.restDay) safePlan.items=[];
