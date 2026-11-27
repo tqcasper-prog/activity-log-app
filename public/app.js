@@ -219,13 +219,24 @@
     data.workoutPlans.push(saved);
     save('เพิ่มแผนฝึกลงในเว็บไซต์แล้ว');
   }
+
+  function renderAiPlanWorkspace() {
+    const messages=(data.coachMessages||[]).map((message,index)=>({message,index})).filter(x=>x.message.role==='assistant'&&x.message.result?.hasPlan&&x.message.result?.plan);
+    const latest=messages[messages.length-1], accepted=(data.workoutPlans||[]).find(item=>item.date===selectedDate);
+    const pending=latest&&latest.message.result.plan.date===selectedDate&&(!accepted||accepted.acceptedAt!==latest.message.createdAt);
+    let html='<section class="ai-plan-workspace"><p class="eyebrow">AI WORKOUT BUILDER</p><h2>ตารางฝึกจาก AI</h2><p class="muted small-text">พื้นที่แยกสำหรับตรวจสอบและนำแผนจาก Gemini ไปบันทึกในตารางฝึก</p>';
+    if(pending){const p=latest.message.result.plan;html+='<div class="ai-workspace-card"><div class="workspace-status">แผนใหม่ · ยังไม่บันทึก</div><h3>'+esc(p.title||'แผนฝึก')+'</h3><p>'+esc(p.reason||'')+'</p>'+renderPlanTable(p)+'<button type="button" class="primary-button" data-apply-plan="'+latest.index+'">ยืนยันและใส่ตารางฝึก</button></div>';}
+    else if(accepted){html+='<div class="ai-workspace-card"><div class="workspace-status saved">บันทึกในตารางแล้ว</div><h3>'+esc(accepted.title||'แผนฝึก')+'</h3><p>'+esc(accepted.reason||'')+'</p>'+renderPlanTable(accepted)+'</div>';}
+    else html+='<div class="ai-workspace-empty">เมื่อ Gemini สร้างแผนฝึกและส่งกลับมา ตารางจะปรากฏที่ส่วนนี้โดยอัตโนมัติ จากนั้นกดยืนยันเพื่อบันทึกแผน</div>';
+    return html+'</section>';
+  }
   function renderExercise() {
     const sessions=data.workouts.filter(x=>x.date===selectedDate).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
     const activePlan=(data.workoutPlans||[]).find(item=>item.date===selectedDate);
     const planCard=activePlan?card('แผนฝึกที่ยืนยันแล้ว','<p><b>'+esc(activePlan.title)+'</b></p><p class="muted small-text">'+esc(activePlan.reason||'')+'</p>'+renderPlanTable(activePlan)+'<p class="muted small-text">ยืนยันเมื่อ '+new Date(activePlan.acceptedAt).toLocaleString('th-TH')+'</p>'):'';
     const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p>'+coachQuotaMarkup()+'<div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear" title="ล้างเฉพาะประวัติข้อความแชท ไม่ลบแผนฝึกหรือบันทึกการออกกำลังกาย">ล้างประวัติแชท</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
     return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">บันทึกผลและใช้ผู้ช่วยวางแผนจากสิ่งที่ทำจริง</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
-      coach+planCard+
+      coach+renderAiPlanWorkspace()+planCard+
       card('คลังท่าฝึกพื้นฐาน',exerciseLibrary.map((x,i)=>'<details class="exercise-item"><summary><span><b>'+x.name+'</b><small>'+x.target+' · '+x.level+'</small></span><span class="pill">'+x.sets+' เซ็ต · '+x.reps+'</span></summary><p>'+x.steps+'</p><p class="muted small-text">ข้อควรระวัง: '+x.caution+'</p><button data-log-exercise="'+i+'" class="secondary-button">บันทึกการฝึกท่านี้</button></details>').join(''))+
       card('บันทึกผลวันนี้',sessions.length?sessions.map(x=>'<div class="list-row"><div><b>'+esc(x.exercise)+'</b><small>'+x.sets+' เซ็ต · '+x.reps+' ครั้ง/เซ็ต · พัก '+x.rest+' วินาที</small>'+(x.notes?'<small>'+esc(x.notes)+'</small>':'')+'</div><button class="danger-link" data-delete-workout="'+x.id+'">ลบ</button></div>').join(''):'<div class="empty-state">ยังไม่มีบันทึกการฝึกในวันนี้</div>')+
       '<div id="exercise-editor"></div><div class="notice subtle">หากเจ็บแปลบ เวียนศีรษะ เจ็บข้อ หรือมีอาการผิดปกติ ให้หยุดฝึกทันที การบันทึกนี้ไม่ใช่การวินิจฉัยหรือแผนรักษา</div>';
@@ -287,7 +298,7 @@
     $('#add-activity').addEventListener('click',()=>{editingActivity=null;$('#activity-editor').innerHTML=activityForm();bindActivityForm()});
     $$('[data-edit-activity]').forEach(b=>b.addEventListener('click',()=>{editingActivity=data.activities.find(x=>x.id===b.dataset.editActivity);$('#activity-editor').innerHTML=activityForm(editingActivity);bindActivityForm()}));
     $$('[data-delete-activity]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ยืนยันลบกิจกรรมนี้หรือไม่?')){data.activities=data.activities.filter(x=>x.id!==b.dataset.deleteActivity);save()}}));
-    $('[data-status]').forEach(b=>b.addEventListener('click',()=>{const a=data.activities.find(x=>x.id===b.dataset.status);const options=['planned','completed','skipped','rescheduled'];a.status=options[(options.indexOf(a.status)+1)%options.length];save('เปลี่ยนสถานะแล้ว')}));
+    $$('[data-status]').forEach(b=>b.addEventListener('click',()=>{const a=data.activities.find(x=>x.id===b.dataset.status);const options=['planned','completed','skipped','rescheduled'];a.status=options[(options.indexOf(a.status)+1)%options.length];save('เปลี่ยนสถานะแล้ว')}));
     $('#add-template')?.addEventListener('click',()=>{const template=[['06:30','07:00','ตื่นนอนและเตรียมตัว','ชีวิตประจำวัน'],['08:00','18:00','ทำงาน','งาน'],['18:00','18:40','ซื้ออาหารและกินข้าว','ชีวิตประจำวัน'],['18:40','19:20','อาบน้ำและพัก','ชีวิตประจำวัน'],['19:20','20:10','ออกกำลังกายหรือฟื้นตัว','ออกกำลังกาย'],['20:20','21:05','เรียน / ศึกษาด้วยตนเอง','เรียน'],['21:05','21:50','เล่นเกม / เวลาส่วนตัว','พักผ่อน'],['21:50','22:00','เตรียมตัวนอน','ชีวิตประจำวัน'],['22:00','06:30','นอนหลับ','พักผ่อน']];if(activityList(selectedDate).length&&!confirm('วันนี้มีกิจกรรมอยู่แล้ว ต้องการเพิ่มตารางตัวอย่างเข้าไปด้วยหรือไม่?'))return;data.activities.push(...template.map(([start,end,title,category])=>({id:uid(),date:selectedDate,start,end,title,category,status:'planned',notes:'ตารางเริ่มต้น ปรับเปลี่ยนได้ตามต้องการ'})));save('เพิ่มตารางตัวอย่างแล้ว คุณสามารถแก้ไขได้ตามต้องการ')});
   }
   function bindActivityForm() {
@@ -302,17 +313,17 @@
   function bindTime() {
     $('#time-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
     $('#time-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget);const duration=Number(f.get('durationMinutes'));if(!Number.isInteger(duration)||duration<1||duration>1440)return alert('ระยะเวลาต้องเป็น 1–1440 นาที');const item={id:editingTimeLog?.id||uid(),date:f.get('date'),title:f.get('title'),category:f.get('category'),durationMinutes:duration,notes:f.get('notes'),createdAt:editingTimeLog?.createdAt||new Date().toISOString()};if(editingTimeLog)data.timeLogs=data.timeLogs.map(x=>x.id===item.id?item:x);else data.timeLogs.push(item);editingTimeLog=null;save('บันทึกเวลาแล้ว')});
-    $('[data-edit-log]').forEach(b=>b.addEventListener('click',()=>{editingTimeLog=data.timeLogs.find(x=>x.id===b.dataset.editLog);const form=$('#time-form');for(const [key,value] of Object.entries(editingTimeLog))if(form.elements[key])form.elements[key].value=value;form.querySelector('button[type="submit"],button:not([type])').textContent='บันทึกการแก้ไข';form.scrollIntoView({behavior:'smooth',block:'center'})}));
-    $('[data-delete-log]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกเวลานี้หรือไม่?')){data.timeLogs=data.timeLogs.filter(x=>x.id!==b.dataset.deleteLog);save()}}));
+    $$('[data-edit-log]').forEach(b=>b.addEventListener('click',()=>{editingTimeLog=data.timeLogs.find(x=>x.id===b.dataset.editLog);const form=$('#time-form');for(const [key,value] of Object.entries(editingTimeLog))if(form.elements[key])form.elements[key].value=value;form.querySelector('button[type="submit"],button:not([type])').textContent='บันทึกการแก้ไข';form.scrollIntoView({behavior:'smooth',block:'center'})}));
+    $$('[data-delete-log]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกเวลานี้หรือไม่?')){data.timeLogs=data.timeLogs.filter(x=>x.id!==b.dataset.deleteLog);save()}}));
   }
   function bindExercise() {
     $('#exercise-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
     $('#coach-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#coach-input').value.trim();if(!text)return alert('กรุณาพิมพ์ข้อความก่อนส่ง');$('#coach-input').value='';askWorkoutCoach(text)});
     $('#coach-history').addEventListener('click',()=>askWorkoutCoach(''));
     $('#coach-clear').addEventListener('click',clearCoachHistory);
-    $('[data-apply-plan]').forEach(b=>b.addEventListener('click',()=>applyWorkoutPlan(Number(b.dataset.applyPlan))));
-    $('[data-log-exercise]').forEach(b=>b.addEventListener('click',()=>{$('#exercise-editor').innerHTML=workoutForm(Number(b.dataset.logExercise));bindWorkoutForm(Number(b.dataset.logExercise))}));
-    $('[data-delete-workout]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกการฝึกนี้หรือไม่?')){data.workouts=data.workouts.filter(x=>x.id!==b.dataset.deleteWorkout);save()}}));
+    $$('[data-apply-plan]').forEach(b=>b.addEventListener('click',()=>applyWorkoutPlan(Number(b.dataset.applyPlan))));
+    $$('[data-log-exercise]').forEach(b=>b.addEventListener('click',()=>{$('#exercise-editor').innerHTML=workoutForm(Number(b.dataset.logExercise));bindWorkoutForm(Number(b.dataset.logExercise))}));
+    $$('[data-delete-workout]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบบันทึกการฝึกนี้หรือไม่?')){data.workouts=data.workouts.filter(x=>x.id!==b.dataset.deleteWorkout);save()}}));
   }
   function bindWorkoutForm(index) {
     $('#cancel-exercise').addEventListener('click',()=>$('#exercise-editor').innerHTML='');
@@ -321,8 +332,8 @@
   function bindNutrition() {
     $('#nutrition-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
     $('#meal-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget),entry={id:editingMeal?.id||uid(),date:f.get('date'),title:f.get('title'),meal:f.get('meal'),serving:f.get('serving'),calories:Number(f.get('calories')),protein:Number(f.get('protein')),carbs:Number(f.get('carbs')),fat:Number(f.get('fat')),source:f.get('source'),confidence:'estimated',createdAt:editingMeal?.createdAt||new Date().toISOString()};if(Object.values(entry).some(v=>typeof v==='number'&&(!Number.isFinite(v)||v<0)))return alert('กรุณาตรวจสอบตัวเลขโภชนาการ');if(editingMeal)data.meals=data.meals.map(x=>x.id===entry.id?entry:x);else data.meals.push(entry);editingMeal=null;save('บันทึกอาหารแล้ว')});
-    $('[data-edit-meal]').forEach(b=>b.addEventListener('click',()=>{editingMeal=data.meals.find(x=>x.id===b.dataset.editMeal);const form=$('#meal-form');for(const [key,value] of Object.entries(editingMeal))if(form.elements[key])form.elements[key].value=value;form.scrollIntoView({behavior:'smooth',block:'center'})}));
-    $('[data-delete-meal]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบรายการอาหารนี้หรือไม่?')){data.meals=data.meals.filter(x=>x.id!==b.dataset.deleteMeal);save()}}));
+    $$('[data-edit-meal]').forEach(b=>b.addEventListener('click',()=>{editingMeal=data.meals.find(x=>x.id===b.dataset.editMeal);const form=$('#meal-form');for(const [key,value] of Object.entries(editingMeal))if(form.elements[key])form.elements[key].value=value;form.scrollIntoView({behavior:'smooth',block:'center'})}));
+    $$('[data-delete-meal]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบรายการอาหารนี้หรือไม่?')){data.meals=data.meals.filter(x=>x.id!==b.dataset.deleteMeal);save()}}));
   }
   function bindBody() {
     $('#body-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget),weight=Number(f.get('weight'));if(!(weight>0))return alert('กรุณากรอกน้ำหนักให้ถูกต้อง');const optional=k=>f.get(k)===''?null:Number(f.get(k));data.measurements.push({id:uid(),date:f.get('date'),weight,height:optional('height'),waist:optional('waist'),sleep:optional('sleep'),water:optional('water'),notes:f.get('notes'),createdAt:new Date().toISOString()});save('บันทึกข้อมูลร่างกายแล้ว')});
