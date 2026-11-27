@@ -286,6 +286,7 @@ module.exports = async function workoutCoach(req,res) {
     const responseEvidence=responseEvidenceIds.map(publicSource).filter(Boolean);
     const nutritionAdvice=Array.isArray(parsed.nutritionAdvice)?parsed.nutritionAdvice.slice(0,5).map(item=>cleanText(item,240)).filter(Boolean):[];
     const usage=result?.usageMetadata||{};
+    try { await fetch(supabaseUrl+"/rest/v1/rpc/complete_gemini_quota",{method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_request_id:requestId})}); } catch(error) { console.warn("Gemini quota completion could not be recorded",error?.message||"unknown"); }
     return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,topics,topicLabels,nutritionAdvice,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
   } catch { await refundQuota(); return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
 };
