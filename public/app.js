@@ -63,7 +63,7 @@
     notice = 'กำลังบันทึกข้อมูล…';
     render();
     const snapshot = JSON.parse(JSON.stringify(data));
-    saveQueue = saveQueue.catch(() => {}).then(() => window.LHPStorage.save(snapshot)).then(result => {
+    saveQueue = saveQueue.catch(() => {}).then(() => window.LHPAuth.saveData(snapshot)).then(result => {
       notice = result && result.fallback ? message + ' (โหมดสำรองของเบราว์เซอร์)' : message;
       render();
     }).catch(error => {
@@ -407,17 +407,15 @@
   $('#global-date').value=selectedDate;
   async function initializeStorage() {
     try {
-      const loaded = await window.LHPStorage.load(KEY);
+      await window.LHPAuth.ready;
+      if (!window.LHPAuth.getUser()) await window.LHPAuth.waitForUser();
+      const loaded = await window.LHPAuth.loadData(KEY);
       data = normalizeData(loaded.data);
-      notice = loaded.migrated ? 'ย้ายข้อมูลเดิมไปยังระบบจัดเก็บใหม่แล้ว (เก็บต้นฉบับเดิมไว้)' : '';
+      notice = loaded.migrated ? 'นำเข้าข้อมูลเดิมเข้าบัญชีนี้แล้ว (สำเนาต้นฉบับยังอยู่ในอุปกรณ์)' : '';
       render();
     } catch (error) {
-      console.error('เปิดระบบจัดเก็บข้อมูลไม่สำเร็จ', error);
-      notice = 'เปิด IndexedDB ไม่สำเร็จ กำลังใช้พื้นที่จัดเก็บสำรองของเบราว์เซอร์';
-      try {
-        const saved = JSON.parse(localStorage.getItem(KEY));
-        data = normalizeData(saved);
-      } catch { data = defaultData(); }
+      console.error('เปิดระบบจัดเก็บข้อมูลบนคลาวด์ไม่สำเร็จ', error);
+      notice = 'ซิงก์ข้อมูลไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อและลองใหม่';
       render();
     }
   }
