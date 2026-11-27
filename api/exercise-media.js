@@ -30,7 +30,7 @@ module.exports=async function exerciseMedia(req,res){
         if(words.length>=2) terms=[words.slice(-5).join(" ")+" exercise"];
       }
     } else {
-      const allowed=["exercise","fitness","muscle","anatomy","nutrition","food","protein","healthy","stretch","squat","push","workout","bodyweight","chicken","egg","tofu","fish"];
+      const allowed=["exercise","fitness","muscle","anatomy","nutrition","food","protein","stretch","squat","push","bodyweight","chicken","egg","tofu","fish"];
       if(!raw.split(" ").some(word=>allowed.includes(word))) return json(res,200,{images:[],youtubeSearchUrl:null});
       terms=[raw];
     }
