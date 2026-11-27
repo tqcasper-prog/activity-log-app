@@ -46,17 +46,38 @@ module.exports = async function workoutCoach(req,res) {
     sets:Number.isInteger(Number(item?.sets))?Math.min(20,Math.max(0,Number(item.sets))):null,
     reps:cleanText(item?.reps,40),effort:cleanText(item?.effort,40),notes:cleanText(item?.notes,160)
   })):[];
+  const profile=body.trainingProfile&&typeof body.trainingProfile==="object"?{
+    age:Number.isFinite(Number(body.trainingProfile.age))?Math.min(100,Math.max(13,Number(body.trainingProfile.age))):null,
+    sex:cleanText(body.trainingProfile.sex,20),goal:cleanText(body.trainingProfile.goal,100),
+    experience:cleanText(body.trainingProfile.experience,50),equipment:cleanText(body.trainingProfile.equipment,100),
+    daysPerWeek:Number.isFinite(Number(body.trainingProfile.daysPerWeek))?Math.min(7,Math.max(1,Number(body.trainingProfile.daysPerWeek))):null,
+    sessionMinutes:Number.isFinite(Number(body.trainingProfile.sessionMinutes))?Math.min(180,Math.max(10,Number(body.trainingProfile.sessionMinutes))):null,
+    limitations:cleanText(body.trainingProfile.limitations,500),preferences:cleanText(body.trainingProfile.preferences,500)
+  }:null;
+  const bodyHistory=Array.isArray(body.bodyHistory)?body.bodyHistory.slice(0,5).map(item=>({
+    date:cleanText(item?.date,10),weight:Number.isFinite(Number(item?.weight))?Number(item.weight):null,
+    height:Number.isFinite(Number(item?.height))?Number(item.height):null,waist:Number.isFinite(Number(item?.waist))?Number(item.waist):null,
+    sleep:Number.isFinite(Number(item?.sleep))?Number(item.sleep):null,
+    restingHeartRate:Number.isFinite(Number(item?.restingHeartRate))?Number(item.restingHeartRate):null,
+    energy:Number.isFinite(Number(item?.energy))?Number(item.energy):null,soreness:Number.isFinite(Number(item?.soreness))?Number(item.soreness):null,
+    pain:cleanText(item?.pain,240)
+  })): [];
+  const readinessHistory=Array.isArray(body.readinessHistory)?body.readinessHistory.slice(0,7).map(item=>({
+    date:cleanText(item?.date,10),sleep:Number.isFinite(Number(item?.sleep))?Number(item.sleep):null,
+    energy:Number.isFinite(Number(item?.energy))?Number(item.energy):null,soreness:Number.isFinite(Number(item?.soreness))?Number(item.soreness):null,
+    pain:cleanText(item?.pain,240),notes:cleanText(item?.notes,240)
+  })): [];
   const existingPlan=body.existingPlan&&typeof body.existingPlan==="object"?{
     title:cleanText(body.existingPlan.title,100),restDay:Boolean(body.existingPlan.restDay),
     items:Array.isArray(body.existingPlan.items)?body.existingPlan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Number(item?.sets)||0,reps:cleanText(item?.reps,40)})):[]
   }:null;
   const systemInstruction=`คุณคือโค้ชออกกำลังกายสำหรับผู้เริ่มต้น ตอบภาษาไทยเป็นหลัก สุภาพ เป็นกันเอง และอธิบายเหตุผล
-วางแผนอย่างค่อยเป็นค่อยไป โดยใช้เฉพาะข้อความและประวัติที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ
+วางแผนอย่างค่อยเป็นค่อยไป โดยใช้โปรไฟล์การฝึก ข้อมูลร่างกายย้อนหลัง ความพร้อมรายวัน ข้อความ และประวัติการฝึกที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ\nพิจารณาน้ำหนัก/ส่วนสูงเป็นแนวโน้ม ไม่ใช้ BMI ตัดสินความสามารถฝึก ตรวจสอบการนอน พลังงาน ความล้ากล้ามเนื้อ และอาการเจ็บก่อนเพิ่มความหนัก หากข้อมูลขัดแย้งหรือไม่พอให้ถามก่อน ไม่คาดเดาค่าที่หายไป
 ความปลอดภัย: ห้ามวินิจฉัยโรคหรือการบาดเจ็บ หากมีอาการเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้แนะนำหยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก อย่าเพิ่มความหนักหากล้ามาก นอนน้อย หรือฟื้นตัวไม่ดี และให้มีวันพัก
 สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน เลือกท่าพื้นฐานที่เหมาะสม ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย พร้อมวิธีเตรียมท่า ขั้นตอนย่อย 3-6 ข้อ การหายใจ ข้อผิดพลาดที่พบบ่อย และข้อควรระวังอย่างเฉพาะเจาะจงของแต่ละท่า หลีกเลี่ยงฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน
 หากควรพัก ให้ restDay=true และ items=[] หากข้อมูลไม่พอให้ถามเพิ่มและ hasPlan=false แผนเป็นเพียงข้อเสนอ ผู้ใช้ต้องยืนยันก่อนบันทึก
 ส่งคำตอบเป็น JSON ตาม schema เท่านั้น โดย reply เป็นข้อความสนทนา และ hasPlan/plan เป็นข้อมูลแผน`;
-  const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกที่บันทึกไว้สำหรับวันนี้",recentTrainingHistory:workouts,previousConversation:conversation,currentAcceptedPlan:existingPlan};
+  const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกและข้อมูลร่างกายที่บันทึกไว้สำหรับวันนี้",trainingProfile:profile,bodyMeasurementHistory:bodyHistory,dailyReadinessHistory:readinessHistory,recentTrainingHistory:workouts,previousConversation:conversation,currentAcceptedPlan:existingPlan};
   try {
     const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
     const upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
