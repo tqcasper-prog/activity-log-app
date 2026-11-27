@@ -1,4 +1,4 @@
-// Search Wikimedia Commons for exercise reference images without an API key.
+// Search Wikimedia Commons for relevant exercise and health reference images.
 function json(res,status,body){res.setHeader("Cache-Control","public, s-maxage=86400, stale-while-revalidate=604800");return res.status(status).json(body);}
 module.exports=async function exerciseMedia(req,res){
   if(req.method!=="GET"){res.setHeader("Allow","GET");return json(res,405,{error:"Method not allowed"});}
@@ -6,7 +6,8 @@ module.exports=async function exerciseMedia(req,res){
   const kind=req.query?.kind==="general"?"general":"exercise";
   if(!q)return json(res,400,{error:"กรุณาระบุหัวข้อภาพประกอบ"});
   try{
-    const normalize=value=>String(value||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+    const sourceQ=q.toLowerCase();
+    const normalize=value=>String(value||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
     const raw=normalize(q);
     const exerciseMap=[
       {match:/sit to stand|chair stand|ลุกนั่งจากเก้าอี้|สควอตแตะเก้าอี้/,terms:["sit to stand exercise","chair stand exercise","sit to stand test"]},
@@ -22,15 +23,15 @@ module.exports=async function exerciseMedia(req,res){
     ];
     let terms=[];
     if(kind==="exercise"){
-      const matched=exerciseMap.find(item=>item.match.test(raw));
+      const matched=exerciseMap.find(item=>item.match.test(sourceQ)||item.match.test(raw));
       if(matched) terms=matched.terms;
       else {
         const words=raw.split(" ").filter(word=>word.length>2);
         if(words.length>=2) terms=[words.slice(-5).join(" ")+" exercise"];
       }
     } else {
-      const allowed=/\\b(exercise|fitness|muscle|anatomy|nutrition|food|protein|healthy|stretch|squat|push up|workout|bodyweight|chicken|egg|tofu|fish)\\b/;
-      if(!allowed.test(raw)) return json(res,200,{images:[],youtubeSearchUrl:null});
+      const allowed=["exercise","fitness","muscle","anatomy","nutrition","food","protein","healthy","stretch","squat","push","workout","bodyweight","chicken","egg","tofu","fish"];
+      if(!raw.split(" ").some(word=>allowed.includes(word))) return json(res,200,{images:[],youtubeSearchUrl:null});
       terms=[raw];
     }
     if(!terms.length) return json(res,200,{images:[],youtubeSearchUrl:kind==="exercise"?"https://www.youtube.com/results?search_query="+encodeURIComponent(q+" exercise tutorial"):null});
@@ -54,6 +55,5 @@ module.exports=async function exerciseMedia(req,res){
     }
     const images=[...imageMap.values()].sort((a,b)=>b.relevance-a.relevance).slice(0,4).map(({relevance,...image})=>image);
     return json(res,200,{images,youtubeSearchUrl:kind==="exercise"?"https://www.youtube.com/results?search_query="+encodeURIComponent(terms[0]+" tutorial"):null});
-
   }catch{return json(res,502,{error:"ค้นหาภาพประกอบไม่สำเร็จ"});}
 };
