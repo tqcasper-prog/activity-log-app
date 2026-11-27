@@ -86,14 +86,25 @@
   }
   async function resendConfirmation(email) {
     if(!email) throw new Error('ไม่พบอีเมล กรุณากลับไปกรอกอีเมลอีกครั้ง');
+    const {data:limitData,error:limitError}=await client.rpc('reserve_email_confirmation_resend',{p_email:email});
+    if(limitError) throw new Error('ตรวจสอบโควต้าการส่งอีเมลไม่สำเร็จ กรุณาลองใหม่ภายหลัง');
+    const limit=Array.isArray(limitData)?limitData[0]:limitData;
+    if(!limit?.allowed) {
+      const seconds=Math.max(1,Number(limit?.retry_after_seconds)||30);
+      const minutes=Math.ceil(seconds/60);
+      const waitText=seconds<60?seconds+' วินาที':minutes+' นาที';
+      if(Number(limit?.remaining)===0) throw new Error('ส่งลิงก์ครบ 10 ครั้งใน 24 ชั่วโมงแล้ว กรุณารออีกประมาณ '+waitText+' จึงจะส่งใหม่ได้');
+      throw new Error('กรุณารออีก '+waitText+' ก่อนส่งลิงก์ยืนยันครั้งถัดไป');
+    }
     const {error}=await client.auth.resend({type:'signup',email,options:{emailRedirectTo:location.origin}});
     if(error) {
       if(error.code==='over_email_send_rate_limit'||/rate limit|after \d+ seconds/i.test(error.message||'')) {
-        throw new Error('ระบบจำกัดการส่งอีเมลชั่วคราว กรุณารอสักครู่แล้วลองใหม่อีกครั้ง');
+        throw new Error('Supabase จำกัดการส่งอีเมลอยู่ แม้โควต้าของเว็บไซต์ยังเหลือ กรุณารอสักครู่ก่อนลองใหม่ (การกดครั้งนี้นับเป็น 1 ครั้ง)');
       }
       throw error;
     }
-    showConfirmationScreen(email,'ส่งลิงก์ยืนยันฉบับใหม่แล้ว กรุณาเปิดอีเมลฉบับล่าสุด',true);
+    const remaining=Math.max(0,Number(limit.remaining)||0);
+    showConfirmationScreen(email,'ส่งลิงก์ยืนยันแล้ว กรุณาเปิดอีเมลฉบับล่าสุด (เหลือโควต้าส่งซ้ำ '+remaining+'/10 ครั้งใน 24 ชั่วโมง)',true);
   }
   function showAuthScreen(name) {
     ['login','signup','confirm'].forEach(key=>{
