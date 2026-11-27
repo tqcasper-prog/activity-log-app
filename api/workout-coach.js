@@ -273,10 +273,25 @@ module.exports = async function workoutCoach(req,res) {
       const detail=String(result?.error?.message||"Gemini API ไม่สามารถตอบคำขอได้").slice(0,220);
       if(upstream.status===503) return json(res,503,{error:"ขณะนี้ Gemini รุ่นหลักและรุ่นสำรองมีผู้ใช้งานหนาแน่นชั่วคราว ระบบคืนโควต้าสมาชิกให้แล้ว กรุณาลองใหม่ภายหลัง"});
       if(upstream.status===429) {
-        const isDaily=/PerDay|per day|requests per day|daily/i.test(detail);
-        const isMinute=/PerMinute|per minute|requests per minute|tokens per minute/i.test(detail);
-        const reason=isDaily?"โควต้าคำขอต่อวันของ Gemini Free Tier สำหรับโมเดลที่ใช้เต็มแล้ว โดยโควต้าผู้ให้บริการจะรีเซ็ตตามเวลาแปซิฟิก":isMinute?"มีคำขอหรือปริมาณโทเคนต่อนาทีเกินขีดจำกัดของ Gemini Free Tier กรุณารอสักครู่":"Gemini ปฏิเสธคำขอเนื่องจากข้อจำกัด Free Tier";
-        return json(res,429,{error:reason+" ระบบคืนโควต้าสมาชิกในเว็บไซต์ให้แล้ว"});
+        const errorObject=result?.error||{};
+        const errorDetails=Array.isArray(errorObject.details)?errorObject.details:[];
+        const quotaViolations=errorDetails.flatMap(item=>Array.isArray(item.violations)?item.violations:[]);
+        const retryInfo=errorDetails.find(item=>item["@type"]?.includes("RetryInfo"));
+        const quotaMetric=[...new Set(quotaViolations.map(item=>item.quotaMetric).filter(Boolean))];
+        const quotaId=[...new Set(quotaViolations.map(item=>item.quotaId).filter(Boolean))];
+        const quotaDimensions=[...new Set(quotaViolations.flatMap(item=>Object.entries(item.quotaDimensions||{}).map(([key,value])=>key+"="+value)))];
+        const isDaily=/PerDay|per day|requests per day|daily/i.test(detail+" "+quotaId.join(" "));
+        const isMinute=/PerMinute|per minute|requests per minute|tokens per minute/i.test(detail+" "+quotaId.join(" "));
+        const reason=isDaily?"โควต้าคำขอต่อวันของ Google Gemini เต็มแล้ว":isMinute?"เกินขีดจำกัดคำขอหรือโทเคนต่อนาทีของ Google Gemini":"Google Gemini ปฏิเสธคำขอด้วย HTTP 429";
+        const diagnostics=[
+          "โมเดลที่ลองล่าสุด: "+(fallbackModel||model),
+          quotaMetric.length?"quotaMetric: "+quotaMetric.join(", "):"",
+          quotaId.length?"quotaId: "+quotaId.join(", "):"",
+          quotaDimensions.length?"quotaDimensions: "+quotaDimensions.join(", "):"",
+          retryInfo?.retryDelay?"retryDelay: "+retryInfo.retryDelay:"",
+          "Google: "+detail
+        ].filter(Boolean).join(" | ").slice(0,1000);
+        return json(res,429,{error:reason+" ระบบคืนโควต้าสมาชิกในเว็บไซต์ให้แล้ว",provider:"Google Gemini",providerStatus:429,model: fallbackModel||model,quotaMetric,quotaId,quotaDimensions,retryDelay:retryInfo?.retryDelay||null,providerMessage:detail,diagnostics});
       }
       return json(res,502,{error:detail});
     }
