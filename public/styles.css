@@ -145,3 +145,89 @@ body.lhp-compact .nav-item{padding:8px 11px}
 body.lhp-reduce-motion *,body.lhp-reduce-motion *::before,body.lhp-reduce-motion *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 @media(max-width:760px){#lhp-user-actions{justify-content:flex-start;width:100%}.top-actions{flex-wrap:wrap}.account-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.account-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.app-shell{padding:16px 12px 36px}.account-history-row{grid-template-columns:1fr}.account-history-row span{grid-column:1}.account-stats{gap:8px}}
+
+
+/* Dark theme readability: high-contrast surfaces, labels, forms and AI content */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1511;--surface:#17231c;--ink:#f0f5f2;--muted:#b7c6bd;
+  --line:#3a4b41;--accent:#8de0b8;--accent-soft:#244334;
+  --danger:#ff9b9b;--shadow:0 10px 30px rgba(0,0,0,.32)
+}
+:root[data-theme="dark"] body{background:var(--bg);color:var(--ink)}
+:root[data-theme="dark"] .nav,:root[data-theme="dark"] .segmented{background:#202f26}
+:root[data-theme="dark"] .nav-item{color:#d0ddd5}
+:root[data-theme="dark"] .nav-item.active,:root[data-theme="dark"] .segmented button.active{background:#35483c;color:#b3f2d0}
+:root[data-theme="dark"] .date-control input,:root[data-theme="dark"] .date-chip input,
+:root[data-theme="dark"] .form-grid input,:root[data-theme="dark"] .form-grid select,
+:root[data-theme="dark"] .coach-form textarea{background:#111b15;color:var(--ink);border-color:#506257}
+:root[data-theme="dark"] input::placeholder,:root[data-theme="dark"] textarea::placeholder{color:#a9b9af;opacity:1}
+:root[data-theme="dark"] .form-grid label{color:#d5e0d9}
+:root[data-theme="dark"] .coach-panel,:root[data-theme="dark"] .ai-plan,
+:root[data-theme="dark"] .coach-message.assistant,:root[data-theme="dark"] .coach-message.user{
+  background:#1c2b22;border-color:#405649;color:var(--ink)
+}
+:root[data-theme="dark"] .coach-empty{background:#263e30;color:#e0f3e7}
+:root[data-theme="dark"] .coach-message> b{color:#a8edc8}
+:root[data-theme="dark"] .notice{background:#3b3020;border-color:#705b35;color:#ffe2a8}
+:root[data-theme="dark"] .notice.subtle{background:#244334;border-color:#3b654d;color:#d8f3e2}
+:root[data-theme="dark"] .progress{background:#34443a}
+:root[data-theme="dark"] .primary-button{background:#267b58;color:#fff}
+:root[data-theme="dark"] .secondary-button{background:#294b38;color:#c2f4d6}
+:root[data-theme="dark"] .danger-button{background:#512d30;color:#ffd0d0}
+:root[data-theme="dark"] .workout-plan-table th{background:#294b38;color:#c2f4d6}
+:root[data-theme="dark"] .workout-plan-table td{color:#e6eee9}
+:root[data-theme="dark"] .ai-plan-workspace,:root[data-theme="dark"] .ai-workspace-card,
+:root[data-theme="dark"] .evidence-panel,:root[data-theme="dark"] .account-history-row,
+:root[data-theme="dark"] .account-summary-grid>div{background:#1b2a21;border-color:var(--line);color:var(--ink)}
+:root[data-theme="dark"] .workspace-status{background:#4b3b1d;color:#ffe0a0}
+:root[data-theme="dark"] .workspace-status.saved{background:#244b35;color:#c8f4d8}
+:root[data-theme="dark"] .gemini-quota{background:#1b3024;border-color:#41664e;color:var(--ink)}
+:root[data-theme="dark"] .quota-track{background:#344a3a}
+:root[data-theme="dark"] .gemini-quota .quota-safety{color:#ffd18a}
+:root[data-theme="dark"] .exercise-visual svg{background:#294334}
+:root[data-theme="dark"] .pill{background:#294b38;color:#c2f4d6}
+:root[data-theme="dark"] a{color:#9ce9c1}
+:root[data-theme="dark"] button:focus-visible,:root[data-theme="dark"] a:focus-visible,
+:root[data-theme="dark"] input:focus-visible,:root[data-theme="dark"] select:focus-visible,
+:root[data-theme="dark"] textarea:focus-visible{outline:2px solid #9ce9c1;outline-offset:2px}
+:root[data-theme="dark"] ::selection{background:#397454;color:#fff}
+@media(prefers-color-scheme:dark){
+  :root[data-theme="system"]{color-scheme:dark;--bg:#0d1511;--surface:#17231c;--ink:#f0f5f2;--muted:#b7c6bd;--line:#3a4b41;--accent:#8de0b8;--accent-soft:#244334;--danger:#ff9b9b;--shadow:0 10px 30px rgba(0,0,0,.32)}
+  :root[data-theme="system"] body{background:var(--bg);color:var(--ink)}
+  :root[data-theme="system"] .nav,:root[data-theme="system"] .segmented{background:#202f26}
+  :root[data-theme="system"] .nav-item{color:#d0ddd5}
+  :root[data-theme="system"] .nav-item.active,:root[data-theme="system"] .segmented button.active{background:#35483c;color:#b3f2d0}
+  :root[data-theme="system"] .date-control input,:root[data-theme="system"] .date-chip input,
+  :root[data-theme="system"] .form-grid input,:root[data-theme="system"] .form-grid select,
+  :root[data-theme="system"] .coach-form textarea{background:#111b15;color:var(--ink);border-color:#506257}
+  :root[data-theme="system"] input::placeholder,:root[data-theme="system"] textarea::placeholder{color:#a9b9af;opacity:1}
+  :root[data-theme="system"] .form-grid label{color:#d5e0d9}
+  :root[data-theme="system"] .coach-panel,:root[data-theme="system"] .ai-plan,
+  :root[data-theme="system"] .coach-message.assistant,:root[data-theme="system"] .coach-message.user{background:#1c2b22;border-color:#405649;color:var(--ink)}
+  :root[data-theme="system"] .coach-empty{background:#263e30;color:#e0f3e7}
+  :root[data-theme="system"] .coach-message> b{color:#a8edc8}
+  :root[data-theme="system"] .notice{background:#3b3020;border-color:#705b35;color:#ffe2a8}
+  :root[data-theme="system"] .notice.subtle{background:#244334;border-color:#3b654d;color:#d8f3e2}
+  :root[data-theme="system"] .progress{background:#34443a}
+  :root[data-theme="system"] .primary-button{background:#267b58;color:#fff}
+  :root[data-theme="system"] .secondary-button{background:#294b38;color:#c2f4d6}
+  :root[data-theme="system"] .danger-button{background:#512d30;color:#ffd0d0}
+  :root[data-theme="system"] .workout-plan-table th{background:#294b38;color:#c2f4d6}
+  :root[data-theme="system"] .workout-plan-table td{color:#e6eee9}
+  :root[data-theme="system"] .ai-plan-workspace,:root[data-theme="system"] .ai-workspace-card,
+  :root[data-theme="system"] .evidence-panel,:root[data-theme="system"] .account-history-row,
+  :root[data-theme="system"] .account-summary-grid>div{background:#1b2a21;border-color:var(--line);color:var(--ink)}
+  :root[data-theme="system"] .workspace-status{background:#4b3b1d;color:#ffe0a0}
+  :root[data-theme="system"] .workspace-status.saved{background:#244b35;color:#c8f4d8}
+  :root[data-theme="system"] .gemini-quota{background:#1b3024;border-color:#41664e;color:var(--ink)}
+  :root[data-theme="system"] .quota-track{background:#344a3a}
+  :root[data-theme="system"] .gemini-quota .quota-safety{color:#ffd18a}
+  :root[data-theme="system"] .exercise-visual svg{background:#294334}
+  :root[data-theme="system"] .pill{background:#294b38;color:#c2f4d6}
+  :root[data-theme="system"] a{color:#9ce9c1}
+  :root[data-theme="system"] button:focus-visible,:root[data-theme="system"] a:focus-visible,
+  :root[data-theme="system"] input:focus-visible,:root[data-theme="system"] select:focus-visible,
+  :root[data-theme="system"] textarea:focus-visible{outline:2px solid #9ce9c1;outline-offset:2px}
+  :root[data-theme="system"] ::selection{background:#397454;color:#fff}
+}
