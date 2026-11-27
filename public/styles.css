@@ -106,3 +106,42 @@
 .evidence-links ul{margin:5px 0;padding-left:18px}
 .evidence-links li{margin:5px 0;line-height:1.5}
 .evidence-links a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+
+/* Account and personal site preferences */
+#lhp-user-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#lhp-user-actions button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:9px;padding:7px 9px;font-size:11px}
+#lhp-user-actions .lhp-user-label{font-size:11px;color:var(--muted);max-width:150px;overflow-wrap:anywhere}
+.account-identity{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.account-avatar{width:54px;height:54px;border-radius:17px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-size:23px;font-weight:800}
+.account-identity b,.account-identity small{display:block}.account-identity small{font-size:11px;color:var(--muted);margin-top:3px}
+.account-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+.account-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.account-summary-grid>div{padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--bg)}
+.account-summary-grid b,.account-summary-grid small{display:block}.account-summary-grid b{font-size:20px}.account-summary-grid small{font-size:11px;color:var(--muted)}
+.account-history{display:grid;gap:8px;margin:10px 0 14px}
+.account-history-row{padding:10px 12px;border:1px solid var(--line);border-radius:10px;display:grid;grid-template-columns:1fr auto;gap:3px 10px}
+.account-history-row b{font-size:12px}.account-history-row span,.account-history-row small{font-size:10px;color:var(--muted)}.account-history-row small{grid-column:1/-1;overflow-wrap:anywhere}
+.table-wrap{overflow:auto;margin:10px 0 14px}.table-wrap table{width:100%;border-collapse:collapse;min-width:460px}.table-wrap th,.table-wrap td{padding:9px;border-bottom:1px solid var(--line);text-align:left;font-size:11px}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#101815;--surface:#18231e;--ink:#e5eee9;--muted:#a1b2a9;--line:#2b3a32;--accent:#71c5a2;--accent-soft:#203c30;--danger:#ff8888;--shadow:0 8px 28px rgba(0,0,0,.22)}
+:root[data-theme="dark"] .nav{background:#1a2821}
+:root[data-theme="dark"] .nav-item{color:#b1c0b7}
+:root[data-theme="dark"] .nav-item.active{background:#2b3b32;color:#9be0bd}
+:root[data-theme="dark"] .date-control input,:root[data-theme="dark"] .date-chip input{background:var(--surface);color:var(--ink)}
+:root[data-theme="dark"] .gemini-quota{background:#1c3026;border-color:#315743}
+:root[data-theme="dark"] .quota-track{background:#30443a}
+:root[data-theme="dark"] .danger-button{background:#472727;color:#ffaaaa}
+:root[data-theme="dark"] .secondary-button{background:var(--accent-soft);color:var(--accent)}
+:root[data-theme="system"]{color-scheme:light}
+@media(prefers-color-scheme:dark){:root[data-theme="system"]{color-scheme:dark;--bg:#101815;--surface:#18231e;--ink:#e5eee9;--muted:#a1b2a9;--line:#2b3a32;--accent:#71c5a2;--accent-soft:#203c30;--danger:#ff8888;--shadow:0 8px 28px rgba(0,0,0,.22)}:root[data-theme="system"] .nav{background:#1a2821}:root[data-theme="system"] .nav-item{color:#b1c0b7}:root[data-theme="system"] .nav-item.active{background:#2b3b32;color:#9be0bd}}
+:root[data-font-scale="small"] body{font-size:13px}
+:root[data-font-scale="normal"] body{font-size:15px}
+:root[data-font-scale="large"] body{font-size:17px}
+.app-shell[data-width="compact"]{max-width:980px}
+.app-shell[data-width="standard"]{max-width:1180px}
+.app-shell[data-width="wide"]{max-width:1440px}
+body.lhp-compact .panel{padding:14px}
+body.lhp-compact .stat-card{padding:12px}
+body.lhp-compact .nav-item{padding:8px 11px}
+body.lhp-reduce-motion *,body.lhp-reduce-motion *::before,body.lhp-reduce-motion *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+@media(max-width:760px){#lhp-user-actions{justify-content:flex-start;width:100%}.top-actions{flex-wrap:wrap}.account-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.account-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.app-shell{padding:16px 12px 36px}.account-history-row{grid-template-columns:1fr}.account-history-row span{grid-column:1}.account-stats{gap:8px}}
