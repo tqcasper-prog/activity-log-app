@@ -12,6 +12,7 @@ const responseSchema = {
   type: "OBJECT",
   properties: {
     reply: { type: "STRING" },
+    imageQuery: { type: "STRING" },
     hasPlan: { type: "BOOLEAN" },
     evidenceIds: { type: "ARRAY", items: { type: "STRING" } },
     nutritionAdvice: { type: "ARRAY", items: { type: "STRING" } },
@@ -24,7 +25,7 @@ const responseSchema = {
         restSeconds: { type: "INTEGER" }, targetMuscles: { type: "STRING" }, note: { type: "STRING" },
       }, required: ["exerciseId","rationale","evidenceIds","exercise","sets","reps","restSeconds","targetMuscles","note"] } }
     }, required: ["date","title","reason","restDay","evidenceSummary","evidenceIds","items"] }
-  }, required: ["reply","hasPlan","evidenceIds","nutritionAdvice","plan"]
+  }, required: ["reply","imageQuery","hasPlan","evidenceIds","nutritionAdvice","plan"]
 };
 function cleanText(value, max=500) { return typeof value==="string" ? value.trim().slice(0,max) : ""; }
 const TOPIC_LABELS={nutrition:"โภชนาการและอาหาร",exercise_plan:"วางแผนการฝึก",exercise_technique:"เทคนิคท่าออกกำลังกาย",equipment_location:"สถานที่และอุปกรณ์",recovery:"การพักฟื้นและความพร้อม",general:"คำถามทั่วไป"};
@@ -234,6 +235,7 @@ module.exports = async function workoutCoach(req,res) {
 ความปลอดภัย: ไม่วินิจฉัยโรค หากเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้หยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก
 โภชนาการ: เมื่อสร้างแผนให้คำแนะนำ 2–3 ข้อ; เมื่อถามอาหารโดยตรงให้ตอบเป็นหมวดและยกตัวอย่างอาหารไทย ใช้หลักฐานโปรตีนเฉพาะเมื่ออยู่ใน evidenceBase และย้ำว่าใช้กับผู้ใหญ่สุขภาพดีที่ออกกำลังกาย ไม่กำหนดแคลอรีหรือปริมาณที่ไม่มีข้อมูล
 ถ้าข้อมูลไม่พอหรือมีสัญญาณเสี่ยง ให้ถามเพิ่มหรือแนะนำพัก โดย hasPlan=false; ถ้าควรพักให้ restDay=true และ items=[]
+ภาพประกอบ: หากคำตอบทั่วไปมีหัวข้อที่อธิบายด้วยภาพแล้วเข้าใจง่ายขึ้น เช่น เทคนิคท่า กล้ามเนื้อ หรืออาหาร ให้ใส่ imageQuery เป็นวลีค้นหาภาษาอังกฤษสั้น ๆ 2–6 คำที่ตรงกับเนื้อหาคำตอบ; ถ้าไม่จำเป็นให้ใส่สตริงว่าง ห้ามใช้ imageQuery เพื่อสื่อว่าเป็นภาพทางการแพทย์หรือภาพของบุคคลจริง และห้ามใส่ URL
 ตอบ JSON ตาม schema เท่านั้น ใส่ evidenceIds ในระดับคำตอบ แผน และท่า โดยเลือกเฉพาะ ID ที่ได้รับ`;
   const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกและข้อมูลร่างกายที่บันทึกไว้สำหรับวันนี้",topicCategories:topics.map(topic=>({id:topic,label:TOPIC_LABELS[topic]})),trainingProfile:profile,bodyMeasurementHistory:bodyHistory,dailyReadinessHistory:readinessHistory,recentTrainingHistory:workouts,recentNutritionHistory:nutritionHistory,nutritionTargets,previousConversation:conversation,currentAcceptedPlan:existingPlan,evidenceBase:evidenceContext};
   try {
@@ -312,6 +314,6 @@ module.exports = async function workoutCoach(req,res) {
     const nutritionAdvice=Array.isArray(parsed.nutritionAdvice)?parsed.nutritionAdvice.slice(0,5).map(item=>cleanText(item,240)).filter(Boolean):[];
     const usage=result?.usageMetadata||{};
     try { await fetch(supabaseUrl+"/rest/v1/rpc/complete_gemini_quota",{method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_request_id:requestId})}); } catch(error) { console.warn("Gemini quota completion could not be recorded",error?.message||"unknown"); }
-    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,topics,topicLabels,nutritionAdvice,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
+    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",imageQuery:cleanText(parsed.imageQuery,100),hasPlan,topics,topicLabels,nutritionAdvice,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
   } catch { await refundQuota(); return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
 };
