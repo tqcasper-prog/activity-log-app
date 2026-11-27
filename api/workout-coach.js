@@ -243,7 +243,7 @@ module.exports = async function workoutCoach(req,res) {
     const model=process.env.GEMINI_MODEL||"gemini-3.8-flash";
     const requestBody=JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
       generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000,thinkingConfig:{thinkingLevel:"LOW"}}});
-    let upstream,result;
+    let upstream,result,attemptedModel=model;
     for(let attempt=0;attempt<3;attempt++){
       upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
         method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:requestBody
@@ -257,6 +257,7 @@ module.exports = async function workoutCoach(req,res) {
       // Retry a different Free-tier model when the primary model is rate-limited or overloaded.
       const primaryStatus=upstream.status;
       const fallbackModel=process.env.GEMINI_FALLBACK_MODEL||"gemini-3.5-flash-lite";
+      attemptedModel=fallbackModel;
       const fallbackBody=JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
         generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000}});
       try{
@@ -284,14 +285,14 @@ module.exports = async function workoutCoach(req,res) {
         const isMinute=/PerMinute|per minute|requests per minute|tokens per minute/i.test(detail+" "+quotaId.join(" "));
         const reason=isDaily?"โควต้าคำขอต่อวันของ Google Gemini เต็มแล้ว":isMinute?"เกินขีดจำกัดคำขอหรือโทเคนต่อนาทีของ Google Gemini":"Google Gemini ปฏิเสธคำขอด้วย HTTP 429";
         const diagnostics=[
-          "โมเดลที่ลองล่าสุด: "+(fallbackModel||model),
+          "โมเดลที่ลองล่าสุด: "+attemptedModel,
           quotaMetric.length?"quotaMetric: "+quotaMetric.join(", "):"",
           quotaId.length?"quotaId: "+quotaId.join(", "):"",
           quotaDimensions.length?"quotaDimensions: "+quotaDimensions.join(", "):"",
           retryInfo?.retryDelay?"retryDelay: "+retryInfo.retryDelay:"",
           "Google: "+detail
         ].filter(Boolean).join(" | ").slice(0,1000);
-        return json(res,429,{error:reason+" ระบบคืนโควต้าสมาชิกในเว็บไซต์ให้แล้ว",provider:"Google Gemini",providerStatus:429,model: fallbackModel||model,quotaMetric,quotaId,quotaDimensions,retryDelay:retryInfo?.retryDelay||null,providerMessage:detail,diagnostics});
+        return json(res,429,{error:reason+" ระบบคืนโควต้าสมาชิกในเว็บไซต์ให้แล้ว",provider:"Google Gemini",providerStatus:429,model:attemptedModel,quotaMetric,quotaId,quotaDimensions,retryDelay:retryInfo?.retryDelay||null,providerMessage:detail,diagnostics});
       }
       return json(res,502,{error:detail});
     }
