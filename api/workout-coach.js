@@ -77,6 +77,7 @@ module.exports = async function workoutCoach(req,res) {
       items:Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Math.min(20,Math.max(0,Number(item?.sets)||0)),reps:cleanText(item?.reps,40),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),targetMuscles:cleanText(item?.targetMuscles,100),note:cleanText(item?.note,180),setup:cleanText(item?.setup,300),steps:Array.isArray(item?.steps)?item.steps.slice(0,6).map(step=>cleanText(step,220)).filter(Boolean):[],breathing:cleanText(item?.breathing,220),commonMistakes:cleanText(item?.commonMistakes,260),caution:cleanText(item?.caution,260)})).filter(item=>item.exercise&&item.sets>0&&item.reps):[]};
     if(safePlan.restDay)safePlan.items=[];
     const hasPlan=Boolean(parsed.hasPlan)&&(safePlan.restDay||safePlan.items.length>0);
-    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,plan:safePlan});
+    const usage=result?.usageMetadata||{};
+    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,plan:safePlan,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
   } catch { return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
 };
