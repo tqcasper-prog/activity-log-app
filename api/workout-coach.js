@@ -130,12 +130,13 @@ module.exports = async function workoutCoach(req,res) {
       const evidenceIds=cleanEvidenceIds(item?.evidenceIds).filter(id=>catalog.sourceIds.includes(id));
       const resolvedEvidenceIds=evidenceIds.length?evidenceIds:catalog.sourceIds.filter(id=>sourceById.has(id));
       return {
-        exerciseId,exercise:catalog.name,sets:Math.min(20,Math.max(0,Number(item?.sets)||0)),
+        exerciseId,exercise:catalog.name,sets:Math.min(3,Math.max(0,Number(item?.sets)||0)),
         reps:cleanText(item?.reps,40),restSeconds:Math.min(600,Math.max(0,Number(item?.restSeconds)||0)),
         targetMuscles:catalog.targetMuscles,note:cleanText(item?.note,180),rationale:cleanText(item?.rationale,500),
-        setup:cleanText(item?.setup,300),steps:Array.isArray(item?.steps)?item.steps.slice(0,6).map(step=>cleanText(step,220)).filter(Boolean):catalog.steps,
-        breathing:cleanText(item?.breathing,220)||catalog.breathing,commonMistakes:cleanText(item?.commonMistakes,260),
-        caution:cleanText(item?.caution,260)||catalog.caution,evidenceIds:resolvedEvidenceIds,
+        setup:cleanText(item?.setup,300)||"จัดพื้นที่ให้โล่ง ใช้เก้าอี้หรือจุดพยุงที่มั่นคง และเตรียมท่าให้พร้อมก่อนเริ่ม",
+        steps:catalog.steps,breathing:catalog.breathing,
+        commonMistakes:cleanText(item?.commonMistakes,260)||"หลีกเลี่ยงการเหวี่ยงตัว เร่งจังหวะ หรือฝืนช่วงการเคลื่อนไหว",
+        caution:catalog.caution,evidenceIds:resolvedEvidenceIds,
         evidence:resolvedEvidenceIds.map(publicSource).filter(Boolean)
       };
     }).filter(item=>item&&item.exercise&&item.sets>0&&item.reps):[];
