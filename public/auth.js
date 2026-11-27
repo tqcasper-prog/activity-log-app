@@ -18,7 +18,7 @@
     const gate = document.createElement('main');
     gate.id = 'lhp-auth-gate';
     gate.innerHTML = '<section class="lhp-auth-card"><div class="lhp-auth-brand">LHP</div><h1>Life &amp; Health Planner</h1><p class="lhp-auth-muted">เข้าสู่ระบบเพื่อเก็บข้อมูลสุขภาพและแผนของคุณอย่างเป็นส่วนตัว</p>' +
-      '<section class="lhp-auth-screen" id="lhp-login-screen"><h2>เข้าสู่ระบบ</h2><form id="lhp-login-form"><label>อีเมล<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="name@example.com"></label><label>รหัสผ่าน<div class="lhp-password-wrap"><input id="lhp-login-password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="รหัสผ่านของคุณ"><button type="button" data-toggle-password="lhp-login-password">แสดง</button></div></label><label class="lhp-remember"><input type="checkbox" id="lhp-remember" checked> จดจำการเข้าสู่ระบบในอุปกรณ์นี้</label><button class="lhp-auth-primary" type="submit" id="lhp-login">เข้าสู่ระบบ</button></form><div class="lhp-auth-links"><button class="lhp-auth-link" type="button" id="lhp-forgot">ลืมรหัสผ่าน?</button><button class="lhp-auth-link" type="button" id="lhp-show-signup">ยังไม่มีบัญชี? สมัครสมาชิก</button></div></section>' +
+      '<section class="lhp-auth-screen" id="lhp-login-screen"><h2>เข้าสู่ระบบ</h2><form id="lhp-login-form"><label>อีเมล<input name="email" type="email" autocomplete="username" required maxlength="254" placeholder="name@example.com"></label><label>รหัสผ่าน<div class="lhp-password-wrap"><input id="lhp-login-password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="รหัสผ่านของคุณ"><button type="button" data-toggle-password="lhp-login-password">แสดง</button></div></label><p class="lhp-auth-muted">ระบบจะจดจำการเข้าสู่ระบบบนอุปกรณ์นี้อย่างปลอดภัย</p><button class="lhp-auth-primary" type="submit" id="lhp-login">เข้าสู่ระบบ</button></form><div class="lhp-auth-links"><button class="lhp-auth-link" type="button" id="lhp-forgot">ลืมรหัสผ่าน?</button><button class="lhp-auth-link" type="button" id="lhp-show-signup">ยังไม่มีบัญชี? สมัครสมาชิก</button></div></section>' +
       '<section class="lhp-auth-screen" id="lhp-signup-screen" hidden><h2>สมัครสมาชิก</h2><form id="lhp-signup-form"><label>ชื่อผู้ใช้<input name="display_name" type="text" autocomplete="nickname" maxlength="60" required placeholder="ชื่อที่ต้องการให้แสดง"></label><label>อีเมล<input name="email" type="email" autocomplete="email" required maxlength="254" placeholder="name@example.com"></label><label>รหัสผ่าน<div class="lhp-password-wrap"><input id="lhp-signup-password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="อย่างน้อย 8 ตัวอักษร"><button type="button" data-toggle-password="lhp-signup-password">แสดง</button></div></label><button class="lhp-auth-primary" type="submit" id="lhp-signup">สร้างบัญชี</button></form><button class="lhp-auth-link" type="button" id="lhp-show-login">มีบัญชีอยู่แล้ว? กลับไปเข้าสู่ระบบ</button></section>' +
       '<section class="lhp-auth-screen" id="lhp-confirm-screen" hidden><h2>ยืนยันอีเมลของคุณ</h2><p class="lhp-auth-muted">เราส่งลิงก์ยืนยันไปที่ <strong id="lhp-confirm-email"></strong> กรุณากดลิงก์ในอีเมลเพื่อเปิดใช้งานบัญชี</p><button class="lhp-auth-primary" type="button" id="lhp-resend-confirm">ส่งลิงก์ยืนยันอีกครั้ง</button><button class="lhp-auth-link" type="button" id="lhp-back-login">กลับไปหน้าเข้าสู่ระบบ</button></section>' +
       '<p id="lhp-auth-message" role="status" aria-live="polite"></p><small>บัญชีแต่ละบัญชีจะเห็นเฉพาะข้อมูลของตนเอง</small></section>';
@@ -139,9 +139,6 @@
     });
   }
   function bindAuthForm() {
-    const remember=$('#lhp-remember');
-    if(remember) remember.checked=localStorage.getItem('lhp_remember_login')!=='false';
-    remember?.addEventListener('change',()=>localStorage.setItem('lhp_remember_login',String(remember.checked)));
     $('#lhp-login-form')?.addEventListener('submit',async e=>{
       e.preventDefault();
       const form=new FormData(e.currentTarget);
@@ -247,13 +244,9 @@
       const config=await response.json();
       if(!response.ok||!config.url||!config.publishableKey)throw new Error(config.error||'ยังไม่ได้ตั้งค่า Supabase ในระบบ');
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js');
-      const remember=$('#lhp-remember');
-      const storage={
-        getItem:key=>(remember?.checked?localStorage:sessionStorage).getItem(key),
-        setItem:(key,value)=>(remember?.checked?localStorage:sessionStorage).setItem(key,value),
-        removeItem:key=>{localStorage.removeItem(key);sessionStorage.removeItem(key);}
-      };
-      client=window.supabase.createClient(config.url,config.publishableKey,{auth:{storage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      // Use Supabase's default persistent localStorage adapter so sessions survive browser restarts.
+      // Never store raw passwords; Supabase stores and refreshes the session tokens securely.
+      client=window.supabase.createClient(config.url,config.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
       bindAuthForm();
       const {data,error}=await client.auth.getSession();
       if(error)throw error;
