@@ -99,7 +99,7 @@ module.exports = async function workoutCoach(req,res) {
     age:Number.isFinite(Number(body.trainingProfile.age))?Math.min(100,Math.max(13,Number(body.trainingProfile.age))):null,
     sex:cleanText(body.trainingProfile.sex,20),goal:cleanText(body.trainingProfile.goal,100),
     experience:cleanText(body.trainingProfile.experience,50),equipment:cleanText(body.trainingProfile.equipment,160),
-    equipmentStatus:["none","known","unknown"].includes(body.trainingProfile.equipmentStatus)?body.trainingProfile.equipmentStatus:(body.trainingProfile.equipment==="ไม่มีอุปกรณ์"?"none":"unknown"),
+    equipmentStatus:["none","known","unknown"].includes(body.trainingProfile.equipmentStatus)?body.trainingProfile.equipmentStatus:(body.trainingProfile.equipment==="ไม่มีอุปกรณ์"?"none":(body.trainingProfile.equipment&& !["มีอุปกรณ์แต่ไม่ทราบชนิด","อุปกรณ์หลายชนิด","ฟิตเนส / ยิม"].includes(body.trainingProfile.equipment)?"known":"unknown")),
     equipmentDetails:cleanText(body.trainingProfile.equipmentDetails,300),trainingLocation:cleanText(body.trainingProfile.trainingLocation,30),trainingLocationDetails:cleanText(body.trainingProfile.trainingLocationDetails,160),
     daysPerWeek:Number.isFinite(Number(body.trainingProfile.daysPerWeek))?Math.min(7,Math.max(1,Number(body.trainingProfile.daysPerWeek))):null,
     sessionMinutes:Number.isFinite(Number(body.trainingProfile.sessionMinutes))?Math.min(180,Math.max(10,Number(body.trainingProfile.sessionMinutes))):null,
