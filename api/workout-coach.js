@@ -14,6 +14,7 @@ const responseSchema = {
     reply: { type: "STRING" },
     hasPlan: { type: "BOOLEAN" },
     evidenceIds: { type: "ARRAY", items: { type: "STRING" } },
+    nutritionAdvice: { type: "ARRAY", items: { type: "STRING" } },
     plan: { type: "OBJECT", properties: {
       date: { type: "STRING" }, title: { type: "STRING" }, reason: { type: "STRING" }, restDay: { type: "BOOLEAN" },
       evidenceSummary: { type: "STRING" }, evidenceIds: { type: "ARRAY", items: { type: "STRING" } },
@@ -23,9 +24,39 @@ const responseSchema = {
         restSeconds: { type: "INTEGER" }, targetMuscles: { type: "STRING" }, note: { type: "STRING" },
       }, required: ["exerciseId","rationale","evidenceIds","exercise","sets","reps","restSeconds","targetMuscles","note"] } }
     }, required: ["date","title","reason","restDay","evidenceSummary","evidenceIds","items"] }
-  }, required: ["reply","hasPlan","evidenceIds","plan"]
+  }, required: ["reply","hasPlan","evidenceIds","nutritionAdvice","plan"]
 };
 function cleanText(value, max=500) { return typeof value==="string" ? value.trim().slice(0,max) : ""; }
+const TOPIC_LABELS={nutrition:"โภชนาการและอาหาร",exercise_plan:"วางแผนการฝึก",exercise_technique:"เทคนิคท่าออกกำลังกาย",equipment_location:"สถานที่และอุปกรณ์",recovery:"การพักฟื้นและความพร้อม",general:"คำถามทั่วไป"};
+function classifyTopics(message) {
+  const value=String(message||"").toLowerCase();
+  const rules=[
+    ["nutrition",/อาหาร|โภชนาการ|กิน|รับประทาน|แคลอรี|แคลอรี่|โปรตีน|คาร์โบไฮเดรต|ไขมัน|มื้อ|เมนู|ข้าว|นม|ไข่|อาหารเสริม/],
+    ["exercise_plan",/ตาราง|โปรแกรม|แผนฝึก|วันนี้.*ฝึก|ควรฝึก|ออกกำลังกายวันนี้|จัด.*ฝึก|เซ็ต|จำนวนครั้ง/],
+    ["exercise_technique",/ท่า|วิธีทำ|ทำอย่างไร|ท่าทาง|ฟอร์ม|วิดพื้น|สควอต|แพลงก์|ดึงข้อ/],
+    ["equipment_location",/อุปกรณ์|เครื่องเล่น|เครื่องออกกำลัง|ดัมเบล|ยางยืด|ฟิตเนส|ยิม|สถานที่|ที่บ้าน|ที่ทำงาน|สวนสาธารณะ/],
+    ["recovery",/พัก|ฟื้นตัว|ปวด|เจ็บ|ล้า|เหนื่อย|นอน|เมื่อย|ตึง|เวียนหัว|ความพร้อม/]
+  ];
+  const found=rules.filter(([,pattern])=>pattern.test(value)).map(([key])=>key);
+  return found.length?found.slice(0,4):["general"];
+}
+function buildWarmupCooldown(items) {
+  const muscles=(items||[]).map(item=>String(item.targetMuscles||"")).join(" ").toLowerCase();
+  const warmup=[
+    {exercise:"เดินอยู่กับที่หรือเดินเบา ๆ",duration:"2 นาที",instruction:"เริ่มช้า ๆ แล้วเพิ่มจังหวะเล็กน้อย ให้หายใจสะดวก"},
+    {exercise:"หมุนหัวไหล่และแกว่งแขนเบา ๆ",duration:"1 นาที",instruction:"เคลื่อนไหวเป็นวงเล็กถึงกลาง ไม่เหวี่ยงหรือฝืนข้อ"},
+    {exercise:"เคลื่อนไหวสะโพกและข้อเท้า",duration:"1 นาที",instruction:"หมุนข้อต่ออย่างนุ่มนวลและอยู่ในช่วงที่ไม่เจ็บ"},
+    {exercise:"ซ้อมท่าหลักด้วยแรงเบา",duration:"1–2 นาที",instruction:"ทดลองการเคลื่อนไหวของท่าฝึกแรกโดยไม่ฝืนและยังไม่ใช้ความหนักเต็ม"}
+  ];
+  const cooldown=[{exercise:"เดินช้า ๆ ผ่อนแรง",duration:"1–2 นาที",instruction:"ลดความเร็วทีละน้อยจนการหายใจกลับมาสบาย"}];
+  if(/อก|หน้าอก|ไหล่|แขน|triceps|biceps/.test(muscles)) cooldown.push({exercise:"ยืดอกและหัวไหล่เบา ๆ",duration:"20–30 วินาทีต่อข้าง",instruction:"เปิดอกอย่างนุ่มนวล ไม่ดึงแขนจนเจ็บ"});
+  if(/หลัง|lat|สะบัก/.test(muscles)) cooldown.push({exercise:"ยืดหลังส่วนบนแบบโอบแขน",duration:"20–30 วินาที",instruction:"ยื่นแขนไปข้างหน้า โอบไหล่เบา ๆ และหายใจสม่ำเสมอ"});
+  if(/ขา|ต้นขา|น่อง|quadriceps|hamstring/.test(muscles)) cooldown.push({exercise:"ยืดต้นขาด้านหน้าและน่อง",duration:"20–30 วินาทีต่อข้าง",instruction:"จับพยุงเพื่อการทรงตัว ยืดเพียงระดับตึงสบาย"});
+  if(/สะโพก|ก้น|glute/.test(muscles)) cooldown.push({exercise:"ยืดสะโพกในท่านั่ง",duration:"20–30 วินาทีต่อข้าง",instruction:"นั่งในท่าที่มั่นคงและหยุดหากมีอาการเจ็บข้อ"});
+  if(cooldown.length===1) cooldown.push({exercise:"ยืดกล้ามเนื้อที่ใช้งานอย่างนุ่มนวล",duration:"20–30 วินาที",instruction:"เลือกบริเวณที่รู้สึกตึง ยืดแค่ระดับสบาย ไม่เด้งหรือฝืน"});
+  cooldown.push({exercise:"หายใจช้า ๆ",duration:"1 นาที",instruction:"หายใจเข้าและออกตามธรรมชาติ ไม่กลั้นหายใจ"});
+  return {warmup,cooldown:cooldown.slice(0,5)};
+}
 function json(res,status,body) { res.setHeader("Cache-Control","no-store"); return res.status(status).json(body); }
 function allowRequest(ip) {
   const now=Date.now(), current=requestCounts.get(ip);
@@ -67,7 +98,9 @@ module.exports = async function workoutCoach(req,res) {
   const profile=body.trainingProfile&&typeof body.trainingProfile==="object"?{
     age:Number.isFinite(Number(body.trainingProfile.age))?Math.min(100,Math.max(13,Number(body.trainingProfile.age))):null,
     sex:cleanText(body.trainingProfile.sex,20),goal:cleanText(body.trainingProfile.goal,100),
-    experience:cleanText(body.trainingProfile.experience,50),equipment:cleanText(body.trainingProfile.equipment,100),
+    experience:cleanText(body.trainingProfile.experience,50),equipment:cleanText(body.trainingProfile.equipment,160),
+    equipmentStatus:["none","known","unknown"].includes(body.trainingProfile.equipmentStatus)?body.trainingProfile.equipmentStatus:(body.trainingProfile.equipment==="ไม่มีอุปกรณ์"?"none":"unknown"),
+    equipmentDetails:cleanText(body.trainingProfile.equipmentDetails,300),trainingLocation:cleanText(body.trainingProfile.trainingLocation,30),trainingLocationDetails:cleanText(body.trainingProfile.trainingLocationDetails,160),
     daysPerWeek:Number.isFinite(Number(body.trainingProfile.daysPerWeek))?Math.min(7,Math.max(1,Number(body.trainingProfile.daysPerWeek))):null,
     sessionMinutes:Number.isFinite(Number(body.trainingProfile.sessionMinutes))?Math.min(180,Math.max(10,Number(body.trainingProfile.sessionMinutes))):null,
     limitations:cleanText(body.trainingProfile.limitations,500),preferences:cleanText(body.trainingProfile.preferences,500)
@@ -87,6 +120,21 @@ module.exports = async function workoutCoach(req,res) {
     energy:item?.energy==null||item.energy===""?null:Math.min(5,Math.max(1,Number(item.energy))),soreness:item?.soreness==null||item.soreness===""?null:Math.min(5,Math.max(1,Number(item.soreness))),stress:item?.stress==null||item.stress===""?null:Math.min(5,Math.max(1,Number(item.stress))),
     pain:cleanText(item?.pain,240)
   })): [];
+  const nutritionHistory=Array.isArray(body.nutritionHistory)?body.nutritionHistory.slice(0,20).map(item=>({
+    date:cleanText(item?.date,10),meal:cleanText(item?.meal,30),title:cleanText(item?.title,100),serving:cleanText(item?.serving,60),
+    calories:Number.isFinite(Number(item?.calories))?Math.max(0,Math.min(10000,Number(item.calories))):null,
+    protein:Number.isFinite(Number(item?.protein))?Math.max(0,Math.min(1000,Number(item.protein))):null,
+    carbs:Number.isFinite(Number(item?.carbs))?Math.max(0,Math.min(1000,Number(item.carbs))):null,
+    fat:Number.isFinite(Number(item?.fat))?Math.max(0,Math.min(1000,Number(item.fat))):null,source:cleanText(item?.source,40)
+  })):[];
+  const nutritionTargets=body.nutritionTargets&&typeof body.nutritionTargets==="object"?{
+    calories:Number.isFinite(Number(body.nutritionTargets.calories))?Math.max(0,Math.min(10000,Number(body.nutritionTargets.calories))):0,
+    protein:Number.isFinite(Number(body.nutritionTargets.protein))?Math.max(0,Math.min(1000,Number(body.nutritionTargets.protein))):0,
+    carbs:Number.isFinite(Number(body.nutritionTargets.carbs))?Math.max(0,Math.min(1000,Number(body.nutritionTargets.carbs))):0,
+    fat:Number.isFinite(Number(body.nutritionTargets.fat))?Math.max(0,Math.min(1000,Number(body.nutritionTargets.fat))):0
+  }:{calories:0,protein:0,carbs:0,fat:0};
+  const topics=classifyTopics(message||conversation.map(item=>item.text).join(" "));
+  const topicLabels=topics.map(topic=>TOPIC_LABELS[topic]);
   const existingPlan=body.existingPlan&&typeof body.existingPlan==="object"?{
     title:cleanText(body.existingPlan.title,100),restDay:Boolean(body.existingPlan.restDay),
     items:Array.isArray(body.existingPlan.items)?body.existingPlan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Number(item?.sets)||0,reps:cleanText(item?.reps,40)})):[]
@@ -122,6 +170,14 @@ module.exports = async function workoutCoach(req,res) {
     setup:row.setup,commonMistakes:row.common_mistakes||[],evidenceNote:row.evidence_note
   }));
   const exerciseById = new Map(catalogExercises.map(exercise => [exercise.id, exercise]));
+  const equipmentStatus=profile?.equipmentStatus||"unknown";
+  const equipmentText=[profile?.equipmentDetails,profile?.equipment].filter(Boolean).join(" ").toLowerCase();
+  const modelExercises=catalogExercises.filter(exercise=>{
+    const required=Array.isArray(exercise.equipment)?exercise.equipment:[];
+    if(!required.length||required.every(item=>item==="ไม่มีอุปกรณ์")) return true;
+    if(equipmentStatus!=="known"||!equipmentText.trim()) return false;
+    return required.every(item=>equipmentText.includes(String(item).toLowerCase()));
+  }).slice(0,45);
   const requestId=randomUUID();
   let quotaReservation=null;
   try {
@@ -147,7 +203,7 @@ module.exports = async function workoutCoach(req,res) {
     principles: evidenceLibrary.principles.map(({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations}) => ({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations})),
     // Technique instructions are added from the trusted catalog after generation;
     // send only selection metadata to Gemini to reduce prompt size and latency.
-    exercises: catalogExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote})),
+    exercises: modelExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote})),
     sources: evidenceLibrary.sources.map(({id,title,organization,year,evidenceType,summary,limitations,url}) => ({id,title,organization,year,evidenceType,summary,limitations,url})),
     coverageLimitations: evidenceLibrary.coverageLimitations
   };
@@ -158,12 +214,14 @@ module.exports = async function workoutCoach(req,res) {
 อ้างอิงได้เฉพาะ source id ที่มีอยู่ใน evidenceBase.sources เท่านั้น หากไม่พบหลักฐานตรง ให้บอกข้อจำกัด ห้ามสร้างชื่อแหล่ง ปี DOI หรือลิงก์ขึ้นเอง
 สำหรับผู้เริ่มต้นให้เน้นความสม่ำเสมอ การควบคุมท่า และการเพิ่มระดับทีละน้อย ไม่บังคับให้เริ่มด้วยปริมาณสูงประมาณ 10 เซ็ตต่อกลุ่มกล้ามเนื้อต่อสัปดาห์ ตัวเลขดังกล่าวเป็นข้อมูลประกอบการเพิ่มปริมาณในอนาคต ไม่ใช่เกณฑ์เริ่มต้นสำหรับทุกคน ไม่จำเป็นต้องฝึกจนหมดแรงทุกเซ็ต
 พิจารณาความถี่รายสัปดาห์ ปริมาณฝึก การพัก และการกระจายกล้ามเนื้อ ห้ามฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน เลือกท่าจากคลังตามอุปกรณ์ที่ผู้ใช้ระบุเท่านั้น หากอุปกรณ์ไม่รองรับการฝึกกล้ามเนื้อกลุ่มใดอย่างเพียงพอ ให้บอกข้อจำกัดตรง ๆ และห้ามอ้างท่าคนละรูปแบบว่าทดแทนกันได้ รายการที่ evidenceNote ระบุว่ายังไม่ได้ทบทวนโดยผู้เชี่ยวชาญเป็นเพียงคำอธิบายทั่วไป ห้ามอ้างว่าเป็นเทคนิคที่ผ่านการรับรองหรือมีหลักฐานทดลองเฉพาะท่า และต้องใช้คำแนะนำอย่างระมัดระวัง
-ใช้โปรไฟล์การฝึก ข้อมูลร่างกายย้อนหลัง ความพร้อมรายวัน ข้อความ และประวัติการฝึกที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ พิจารณาน้ำหนัก/ส่วนสูงเป็นแนวโน้ม ไม่ใช้ BMI ตัดสินความสามารถฝึก ตรวจสอบการนอน พลังงาน ความล้ากล้ามเนื้อ และอาการเจ็บก่อนเพิ่มความหนัก หากข้อมูลขัดแย้งหรือไม่พอให้ถามก่อน ไม่คาดเดาค่าที่หายไป
+ใช้โปรไฟล์การฝึก สถานที่ฝึก สถานะอุปกรณ์และชนิดอุปกรณ์ ข้อมูลร่างกายย้อนหลัง ความพร้อมรายวัน ข้อความ และประวัติการฝึกที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ หากอุปกรณ์ระบุว่าไม่มี ให้เลือกเฉพาะท่าที่ไม่ต้องใช้อุปกรณ์ หากมีแต่ไม่ทราบชนิด ห้ามเดาเครื่องเล่นหรือจัดท่าที่ต้องใช้อุปกรณ์ ให้ถามผู้ใช้เพื่อระบุชนิดก่อน หรือเสนอเฉพาะทางเลือกที่ไม่ต้องใช้อุปกรณ์อย่างชัดเจน หากมีสถานที่/อุปกรณ์ที่ระบุได้ ให้เลือกท่าที่ตรงกับรายการนั้นเท่านั้น พิจารณาน้ำหนัก/ส่วนสูงเป็นแนวโน้ม ไม่ใช้ BMI ตัดสินความสามารถฝึก ตรวจสอบการนอน พลังงาน ความล้ากล้ามเนื้อ และอาการเจ็บก่อนเพิ่มความหนัก หากข้อมูลขัดแย้งหรือไม่พอให้ถามก่อน ไม่คาดเดาค่าที่หายไป
 ความปลอดภัย: ห้ามวินิจฉัยโรคหรือการบาดเจ็บ หากมีอาการเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้แนะนำหยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก อย่าเพิ่มความหนักหากล้ามาก นอนน้อย หรือฟื้นตัวไม่ดี และให้มีวันพัก
-สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย พร้อมวิธีเตรียมท่า ขั้นตอน 3-6 ข้อ การหายใจ ข้อผิดพลาดที่พบบ่อย และข้อควรระวัง
+สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย พร้อมวิธีเตรียมท่า ขั้นตอน 3-6 ข้อ การหายใจ ข้อผิดพลาดที่พบบ่อย และข้อควรระวัง แยกหัวข้อคำตอบตามหมวดที่ได้รับใน topicCategories และตอบภาษาไทยเป็นหลัก
+ให้คำแนะนำโภชนาการทุกครั้งที่สร้างแผนฝึกอย่างกระชับ 2-3 ข้อ โดยพิจารณา nutritionHistory/nutritionTargets ถ้ามีข้อมูล เช่น แหล่งโปรตีนที่เข้าถึงง่าย มื้ออาหารก่อน/หลังฝึก และความสมดุลของอาหาร ห้ามเดาปริมาณอาหารที่ผู้ใช้กินจริงหรือสร้างตัวเลขแคลอรี/สารอาหารที่ไม่มีข้อมูล หากถามเรื่องอาหารโดยตรง ให้ตอบเป็นหมวดโภชนาการพร้อมตัวอย่างอาหารไทยที่ทำได้จริง ระบุว่าค่าประมาณต้องอาศัยปริมาณและวิธีปรุง และไม่วินิจฉัยหรือรักษาโรค
+ถ้าคำถามมีหลายประเด็น ให้แยกคำตอบเป็นหัวข้อ ไม่รวมทุกเรื่องเป็นย่อหน้าเดียว
 หากควรพัก ให้ restDay=true และ items=[] หากข้อมูลไม่พอให้ถามเพิ่มและ hasPlan=false แผนเป็นเพียงข้อเสนอ ผู้ใช้ต้องยืนยันก่อนบันทึก
 ส่ง JSON ตาม schema เท่านั้น ต้องส่ง evidenceIds ระดับคำตอบ, evidenceSummary/evidenceIds ระดับแผน และ rationale/evidenceIds ต่อท่า โดยใช้เฉพาะ ID ที่มีอยู่ในฐานความรู้`;
-  const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกและข้อมูลร่างกายที่บันทึกไว้สำหรับวันนี้",trainingProfile:profile,bodyMeasurementHistory:bodyHistory,dailyReadinessHistory:readinessHistory,recentTrainingHistory:workouts,previousConversation:conversation,currentAcceptedPlan:existingPlan,evidenceBase:evidenceContext};
+  const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกและข้อมูลร่างกายที่บันทึกไว้สำหรับวันนี้",topicCategories:topics.map(topic=>({id:topic,label:TOPIC_LABELS[topic]})),trainingProfile:profile,bodyMeasurementHistory:bodyHistory,dailyReadinessHistory:readinessHistory,recentTrainingHistory:workouts,recentNutritionHistory:nutritionHistory,nutritionTargets,previousConversation:conversation,currentAcceptedPlan:existingPlan,evidenceBase:evidenceContext};
   try {
     const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
     const upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
@@ -201,9 +259,10 @@ module.exports = async function workoutCoach(req,res) {
     }).filter(item=>item&&item.exercise&&item.sets>0&&item.reps):[];
     const itemEvidenceIds=plan.restDay?[]:[...new Set(safeItems.flatMap(item=>item.evidenceIds))];
     const resolvedPlanEvidenceIds=[...new Set([...planEvidenceIds,...itemEvidenceIds])].slice(0,8);
+    const routine=buildWarmupCooldown(safeItems);
     const safePlan={
       date,title:cleanText(plan.title,100)||"แผนฝึกที่แนะนำ",reason:cleanText(plan.reason,500),
-      restDay:Boolean(plan.restDay),evidenceSummary:cleanText(plan.evidenceSummary,700),
+      restDay:Boolean(plan.restDay),warmup:Boolean(plan.restDay)?[]:routine.warmup,cooldown:Boolean(plan.restDay)?[]:routine.cooldown,evidenceSummary:cleanText(plan.evidenceSummary,700),
       evidenceLibraryVersion:evidenceLibrary.version,evidenceIds:resolvedPlanEvidenceIds,evidence:resolvedPlanEvidenceIds.map(publicSource).filter(Boolean),
       items:safeItems
     };
@@ -211,7 +270,8 @@ module.exports = async function workoutCoach(req,res) {
     const hasPlan=Boolean(parsed.hasPlan)&&(safePlan.restDay||safePlan.items.length>0);
     const responseEvidenceIds=cleanEvidenceIds(parsed.evidenceIds);
     const responseEvidence=responseEvidenceIds.map(publicSource).filter(Boolean);
+    const nutritionAdvice=Array.isArray(parsed.nutritionAdvice)?parsed.nutritionAdvice.slice(0,5).map(item=>cleanText(item,240)).filter(Boolean):[];
     const usage=result?.usageMetadata||{};
-    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
+    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",hasPlan,topics,topicLabels,nutritionAdvice,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
   } catch { await refundQuota(); return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
 };
