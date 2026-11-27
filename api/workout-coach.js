@@ -16,6 +16,7 @@ const responseSchema = {
     hasPlan: { type: "BOOLEAN" },
     evidenceIds: { type: "ARRAY", items: { type: "STRING" } },
     nutritionAdvice: { type: "ARRAY", items: { type: "STRING" } },
+    foodSuggestions: { type: "ARRAY", items: { type: "STRING" } },
     plan: { type: "OBJECT", properties: {
       date: { type: "STRING" }, title: { type: "STRING" }, reason: { type: "STRING" }, restDay: { type: "BOOLEAN" },
       evidenceSummary: { type: "STRING" }, evidenceIds: { type: "ARRAY", items: { type: "STRING" } },
@@ -25,7 +26,7 @@ const responseSchema = {
         restSeconds: { type: "INTEGER" }, targetMuscles: { type: "STRING" }, note: { type: "STRING" },
       }, required: ["exerciseId","rationale","evidenceIds","exercise","sets","reps","restSeconds","targetMuscles","note"] } }
     }, required: ["date","title","reason","restDay","evidenceSummary","evidenceIds","items"] }
-  }, required: ["reply","imageQuery","hasPlan","evidenceIds","nutritionAdvice","plan"]
+  }, required: ["reply","imageQuery","hasPlan","evidenceIds","nutritionAdvice","foodSuggestions","plan"]
 };
 function cleanText(value, max=500) { return typeof value==="string" ? value.trim().slice(0,max) : ""; }
 const TOPIC_LABELS={nutrition:"โภชนาการและอาหาร",exercise_plan:"วางแผนการฝึก",exercise_technique:"เทคนิคท่าออกกำลังกาย",equipment_location:"สถานที่และอุปกรณ์",recovery:"การพักฟื้นและความพร้อม",general:"คำถามทั่วไป"};
@@ -233,7 +234,7 @@ module.exports = async function workoutCoach(req,res) {
 ปรับแผนตามเป้าหมาย ประสบการณ์ สถานที่ อุปกรณ์ ประวัติฝึก การนอน ความล้า และอาการเจ็บ ห้ามเดาข้อมูลที่ไม่มี หากไม่มีอุปกรณ์ให้เลือกท่าที่ไม่ต้องใช้อุปกรณ์ โดยอาจใช้เฟอร์นิเจอร์ในบ้านที่มั่นคง เช่น เก้าอี้เพื่อพยุงตัวได้เมื่อคลังระบุไว้ และต้องแจ้งผู้ใช้ให้ตรวจความมั่นคงก่อนใช้ หากไม่ทราบชนิดอุปกรณ์ห้ามเดา
 หลักการฝึก: เน้นความสม่ำเสมอและ progressive resistance กระจายกล้ามเนื้อและวันพัก ไม่บังคับมือใหม่ให้เริ่มที่ 10 เซ็ตต่อกล้ามเนื้อต่อสัปดาห์ และไม่จำเป็นต้องฝึกจนหมดแรงทุกเซ็ต
 ความปลอดภัย: ไม่วินิจฉัยโรค หากเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้หยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก
-โภชนาการ: เมื่อสร้างแผนให้คำแนะนำ 2–3 ข้อ; เมื่อถามอาหารโดยตรงให้ตอบเป็นหมวดและยกตัวอย่างอาหารไทย ใช้หลักฐานโปรตีนเฉพาะเมื่ออยู่ใน evidenceBase และย้ำว่าใช้กับผู้ใหญ่สุขภาพดีที่ออกกำลังกาย ไม่กำหนดแคลอรีหรือปริมาณที่ไม่มีข้อมูล
+โภชนาการ: เมื่อสร้างแผนให้คำแนะนำ 2–3 ข้อ; เมื่อผู้ใช้ถามว่า "กินอะไรดี" หรือถามอาหารมื้อใดโดยตรง ต้องเสนอชื่อเมนูอาหารจริงที่ชัดเจนอย่างน้อย 3–5 เมนูใน reply และ foodSuggestions (เช่น ข้าวกะเพราไก่ไข่ดาว, ข้าวปลา/ปลาย่างกับผัก, ข้าวไข่เจียวเต้าหู้, ข้าวไก่ผัดขิง, ก๋วยเตี๋ยวน้ำใสใส่เนื้อสัตว์และผัก) ระบุส่วนประกอบหลักหรือวิธีเลือกให้เหมาะกับเป้าหมายเพิ่มกล้ามเนื้อ ห้ามตอบเพียงหลักการกว้าง ๆ เช่น กินโปรตีนให้พอหรือเลือกอาหารครบ 5 หมู่; เลือกเมนูที่หาได้ทั่วไปในไทย สลับชนิดโปรตีนและผัก; ถ้าเป็นคำถามอาหารเย็นให้เสนอเมนูมื้อเย็นโดยตรง foodSuggestions ต้องเป็นชื่อเมนูพร้อมคำอธิบายสั้น ๆ ไม่ใช่คำแนะนำลอย ๆ; หากผู้ใช้มีข้อจำกัดอาหารให้เคารพข้อจำกัดนั้น ใช้หลักฐานโปรตีนเฉพาะเมื่ออยู่ใน evidenceBase และย้ำว่าใช้กับผู้ใหญ่สุขภาพดีที่ออกกำลังกาย ไม่กำหนดแคลอรีหรือปริมาณสารอาหารเฉพาะจุดที่ไม่มีข้อมูล
 ถ้าข้อมูลไม่พอหรือมีสัญญาณเสี่ยง ให้ถามเพิ่มหรือแนะนำพัก โดย hasPlan=false; ถ้าควรพักให้ restDay=true และ items=[]
 ภาพประกอบ: หากคำตอบทั่วไปมีหัวข้อที่อธิบายด้วยภาพแล้วเข้าใจง่ายขึ้น เช่น เทคนิคท่า กล้ามเนื้อ หรืออาหาร ให้ใส่ imageQuery เป็นวลีค้นหาภาษาอังกฤษสั้น ๆ 2–6 คำที่ตรงกับเนื้อหาคำตอบ; ถ้าไม่จำเป็นให้ใส่สตริงว่าง ห้ามใช้ imageQuery เพื่อสื่อว่าเป็นภาพทางการแพทย์หรือภาพของบุคคลจริง และห้ามใส่ URL
 ตอบ JSON ตาม schema เท่านั้น ใส่ evidenceIds ในระดับคำตอบ แผน และท่า โดยเลือกเฉพาะ ID ที่ได้รับ`;
@@ -320,8 +321,9 @@ module.exports = async function workoutCoach(req,res) {
     const responseEvidenceIds=cleanEvidenceIds(parsed.evidenceIds);
     const responseEvidence=responseEvidenceIds.map(publicSource).filter(Boolean);
     const nutritionAdvice=Array.isArray(parsed.nutritionAdvice)?parsed.nutritionAdvice.slice(0,5).map(item=>cleanText(item,240)).filter(Boolean):[];
+    const foodSuggestions=Array.isArray(parsed.foodSuggestions)?parsed.foodSuggestions.slice(0,5).map(item=>cleanText(item,220)).filter(Boolean):[];
     const usage=result?.usageMetadata||{};
     try { await fetch(supabaseUrl+"/rest/v1/rpc/complete_gemini_quota",{method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_request_id:requestId})}); } catch(error) { console.warn("Gemini quota completion could not be recorded",error?.message||"unknown"); }
-    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",imageQuery:cleanText(parsed.imageQuery,100),hasPlan,topics,topicLabels,nutritionAdvice,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
+    return json(res,200,{reply:cleanText(parsed.reply,1800)||"ได้รับข้อมูลแล้ว แต่ยังไม่มีคำแนะนำเพิ่มเติม",imageQuery:cleanText(parsed.imageQuery,100),hasPlan,topics,topicLabels,nutritionAdvice,foodSuggestions,evidence:responseEvidence,evidenceLibraryVersion:evidenceLibrary.version,plan:safePlan,quota:quotaReservation,usage:{promptTokens:Number(usage.promptTokenCount)||0,candidateTokens:Number(usage.candidatesTokenCount)||0,totalTokens:Number(usage.totalTokenCount)||0}});
   } catch { await refundQuota(); return json(res,502,{error:"เชื่อมต่อ Gemini ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่"}); }
 };
