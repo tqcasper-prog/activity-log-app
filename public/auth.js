@@ -38,11 +38,20 @@
       document.head.appendChild(script);
     });
   }
+  function withTimeout(promise,ms,label) {
+    let timer;
+    return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label+' ใช้เวลานานเกินกำหนด กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่')),ms);})]).finally(()=>clearTimeout(timer));
+  }
   async function setUser(user) {
+    if (user && currentUser?.id===user.id && profile) {
+      const gate=$('#lhp-auth-gate'); if(gate) gate.remove();
+      const shell=$('.app-shell'); if(shell) shell.style.display='';
+      addUserActions(); resolveUser(currentUser); resolveReady({client,user:currentUser,profile}); return;
+    }
     currentUser = user || null;
     profile = null;
     if (currentUser) {
-      const {data,error}=await client.from('profiles').select('email,display_name,role,account_status').eq('id',currentUser.id).maybeSingle();
+      const {data,error}=await withTimeout(client.from('profiles').select('email,display_name,role,account_status').eq('id',currentUser.id).maybeSingle(),10000,'การโหลดโปรไฟล์');
       if (error) throw error;
       profile=data;
       if (!profile || profile.account_status !== 'active') {
@@ -114,10 +123,10 @@
     message(text,ok);
   }
   async function login(email,password) {
-    const {data,error}=await client.auth.signInWithPassword({email,password});
+    const {data,error}=await withTimeout(client.auth.signInWithPassword({email,password}),15000,'การตรวจสอบอีเมลและรหัสผ่าน');
     if(error) throw error;
     await setUser(data.user);
-    await recordLoginEvent('sign_in');
+    recordLoginEvent('sign_in').catch(error=>console.warn('บันทึกประวัติการเข้าสู่ระบบไม่สำเร็จ',error?.message||'unknown'));
   }
   async function forgot(email) {
     if(!email) throw new Error('กรุณากรอกอีเมลก่อน');
@@ -241,10 +250,10 @@
   async function initialize() {
     styleAndGate();
     try {
-      const response=await fetch(CONFIG_URL,{cache:'no-store'});
+      const response=await withTimeout(fetch(CONFIG_URL,{cache:'no-store'}),10000,'การเชื่อมต่อค่าตั้งค่าระบบ');
       const config=await response.json();
       if(!response.ok||!config.url||!config.publishableKey)throw new Error(config.error||'ยังไม่ได้ตั้งค่า Supabase ในระบบ');
-      await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js');
+      await withTimeout(loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js'),12000,'การโหลดระบบล็อกอิน');
       // Explicitly pin the browser session to the same project-scoped localStorage key on every visit.
       // This is the Supabase v2 default key, retained so existing sessions are not discarded.
       // Never store raw passwords; only Supabase-managed session tokens are persisted.
@@ -265,7 +274,7 @@
         storage:authStorage,storageKey:authStorageKey
       }});
       bindAuthForm();
-      const {data,error}=await client.auth.getSession();
+      const {data,error}=await withTimeout(client.auth.getSession(),10000,'การตรวจสอบเซสชัน');
       if(error)throw error;
       const hashParams=new URLSearchParams(location.hash.slice(1));
       const recoveryFlow=hashParams.get('type')==='recovery';
@@ -273,8 +282,8 @@
       if(recoveryFlow) showRecoveryForm();
       else if(data.session)await setUser(data.session.user);
       else {setUser(null); if(authError) message('ลิงก์ยืนยันไม่สำเร็จหรือหมดอายุ กรุณาขอลิงก์ยืนยันฉบับใหม่');}
-      client.auth.onAuthStateChange(async(event,session)=>{
-        if(event==='SIGNED_IN'&&session?.user){try{await setUser(session.user);}catch(error){message(error.message);}}
+      client.auth.onAuthStateChange((event,session)=>{
+        // Sign-in is finalized by login(); avoid duplicate profile fetches from SIGNED_IN.
         if(event==='PASSWORD_RECOVERY'){showRecoveryForm();}
         if(event==='SIGNED_OUT'){currentUser=null;profile=null;}
       });
