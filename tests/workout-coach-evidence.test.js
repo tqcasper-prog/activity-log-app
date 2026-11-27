@@ -61,7 +61,7 @@ test('workout coach receives curated evidence and resolves citations from the se
     const req = {
       method: 'POST',
       headers: { host: 'localhost', origin: 'http://localhost', 'x-forwarded-for': '192.0.2.99' },
-      body: { date: '2026-11-27', message: 'วันนี้ควรฝึกอะไร', trainingProfile: { age: 22, goal: 'เพิ่มกล้ามเนื้อ', experience: 'มือใหม่', equipment: 'ไม่มีอุปกรณ์' } },
+      body: { date: '2026-11-27', message: 'วันนี้ควรฝึกอะไร', trainingProfile: { age: 22, goal: 'เพิ่มกล้ามเนื้อ', experience: 'มือใหม่', equipment: 'ไม่มีอุปกรณ์' }, readinessHistory: [{ date: '2026-11-27', sleep: 7, energy: 4, notes: 'ข้อความส่วนตัวที่ไม่ควรถูกส่ง' }] },
       socket: { remoteAddress: '192.0.2.99' }
     };
     const res = mockResponse();
@@ -70,10 +70,12 @@ test('workout coach receives curated evidence and resolves citations from the se
     assert.equal(sentPayload.contents[0].parts[0].text.includes('evidenceBase'), true);
     const context = JSON.parse(sentPayload.contents[0].parts[0].text);
     assert.equal(context.evidenceBase.exercises.length, 8);
+    assert.equal(context.dailyReadinessHistory[0].notes, undefined);
     assert.equal(res.body.hasPlan, true);
     assert.equal(res.body.evidence.length, 1);
     assert.equal(res.body.evidence[0].id, 'acsm-rt-2026');
     assert.equal(res.body.plan.items.length, 1);
+    assert.equal(res.body.plan.evidenceLibraryVersion, '2026-11-27.1');
     const item = res.body.plan.items[0];
     assert.equal(item.exercise, 'วิดพื้นกับกำแพง');
     assert.deepEqual(item.steps, ['ยืนหันหน้าเข้ากำแพงในระยะประมาณช่วงแขน วางฝ่ามือระดับอก','เกร็งลำตัวให้เป็นแนวตรง ไม่แอ่นเอว','งอศอกอย่างควบคุม พาลำตัวเข้าใกล้กำแพง','ดันกลับสู่ท่าเริ่มต้นโดยไม่กระแทกข้อศอก']);
