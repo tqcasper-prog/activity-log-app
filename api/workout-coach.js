@@ -7,7 +7,7 @@ const MAX_REQUESTS_PER_WINDOW = 15;
 const requestCounts = new Map();
 let exerciseCatalogCache = null;
 let exerciseCatalogCacheAt = 0;
-const EXERCISE_CATALOG_CACHE_MS = 5 * 60 * 1000;
+const EXERCISE_CATALOG_CACHE_MS = 15 * 60 * 1000;
 const responseSchema = {
   type: "OBJECT",
   properties: {
@@ -89,8 +89,8 @@ module.exports = async function workoutCoach(req,res) {
   const date=cleanText(body.date,10);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res,400,{error:"วันที่ไม่ถูกต้อง"});
   const message=cleanText(body.message,1200);
-  const conversation=Array.isArray(body.conversation)?body.conversation.slice(-6).map(item=>({role:item?.role==="assistant"?"assistant":"user",text:cleanText(item?.text,1000)})).filter(item=>item.text):[];
-  const workouts=Array.isArray(body.workouts)?body.workouts.slice(0,12).map(item=>({
+  const conversation=Array.isArray(body.conversation)?body.conversation.slice(-4).map(item=>({role:item?.role==="assistant"?"assistant":"user",text:cleanText(item?.text,600)})).filter(item=>item.text):[];
+  const workouts=Array.isArray(body.workouts)?body.workouts.slice(0,8).map(item=>({
     date:cleanText(item?.date,10),exercise:cleanText(item?.exercise,100),
     sets:Number.isInteger(Number(item?.sets))?Math.min(20,Math.max(0,Number(item.sets))):null,
     reps:cleanText(item?.reps,40),effort:cleanText(item?.effort,40),notes:cleanText(item?.notes,160)
@@ -105,7 +105,7 @@ module.exports = async function workoutCoach(req,res) {
     sessionMinutes:Number.isFinite(Number(body.trainingProfile.sessionMinutes))?Math.min(180,Math.max(10,Number(body.trainingProfile.sessionMinutes))):null,
     limitations:cleanText(body.trainingProfile.limitations,500),preferences:cleanText(body.trainingProfile.preferences,500)
   }:null;
-  const bodyHistory=Array.isArray(body.bodyHistory)?body.bodyHistory.slice(0,5).map(item=>({
+  const bodyHistory=Array.isArray(body.bodyHistory)?body.bodyHistory.slice(0,3).map(item=>({
     date:cleanText(item?.date,10),weight:Number.isFinite(Number(item?.weight))?Number(item.weight):null,
     height:Number.isFinite(Number(item?.height))?Number(item.height):null,waist:Number.isFinite(Number(item?.waist))?Number(item.waist):null,
     sleep:Number.isFinite(Number(item?.sleep))?Number(item.sleep):null,
@@ -113,14 +113,14 @@ module.exports = async function workoutCoach(req,res) {
     energy:Number.isFinite(Number(item?.energy))?Number(item.energy):null,soreness:Number.isFinite(Number(item?.soreness))?Number(item.soreness):null,
     pain:cleanText(item?.pain,240)
   })): [];
-  const readinessHistory=Array.isArray(body.readinessHistory)?body.readinessHistory.slice(0,7).map(item=>({
+  const readinessHistory=Array.isArray(body.readinessHistory)?body.readinessHistory.slice(0,5).map(item=>({
     date:cleanText(item?.date,10),sleep:item?.sleep==null||item.sleep===""?null:Math.min(24,Math.max(0,Number(item.sleep))),
     daytimeRestMinutes:item?.daytimeRestMinutes==null||item.daytimeRestMinutes===""?null:Math.min(1440,Math.max(0,Number(item.daytimeRestMinutes))),
     trainingMinutes:item?.trainingMinutes==null||item.trainingMinutes===""?null:Math.min(600,Math.max(0,Number(item.trainingMinutes))),
     energy:item?.energy==null||item.energy===""?null:Math.min(5,Math.max(1,Number(item.energy))),soreness:item?.soreness==null||item.soreness===""?null:Math.min(5,Math.max(1,Number(item.soreness))),stress:item?.stress==null||item.stress===""?null:Math.min(5,Math.max(1,Number(item.stress))),
     pain:cleanText(item?.pain,240)
   })): [];
-  const nutritionHistory=Array.isArray(body.nutritionHistory)?body.nutritionHistory.slice(0,20).map(item=>({
+  const nutritionHistory=Array.isArray(body.nutritionHistory)?body.nutritionHistory.slice(0,10).map(item=>({
     date:cleanText(item?.date,10),meal:cleanText(item?.meal,30),title:cleanText(item?.title,100),serving:cleanText(item?.serving,60),
     calories:Number.isFinite(Number(item?.calories))?Math.max(0,Math.min(10000,Number(item.calories))):null,
     protein:Number.isFinite(Number(item?.protein))?Math.max(0,Math.min(1000,Number(item.protein))):null,
@@ -137,7 +137,7 @@ module.exports = async function workoutCoach(req,res) {
   const topicLabels=topics.map(topic=>TOPIC_LABELS[topic]);
   const existingPlan=body.existingPlan&&typeof body.existingPlan==="object"?{
     title:cleanText(body.existingPlan.title,100),restDay:Boolean(body.existingPlan.restDay),
-    items:Array.isArray(body.existingPlan.items)?body.existingPlan.items.slice(0,8).map(item=>({exercise:cleanText(item?.exercise,100),sets:Number(item?.sets)||0,reps:cleanText(item?.reps,40)})):[]
+    items:Array.isArray(body.existingPlan.items)?body.existingPlan.items.slice(0,6).map(item=>({exercise:cleanText(item?.exercise,100),sets:Number(item?.sets)||0,reps:cleanText(item?.reps,40)})):[]
   }:null;
   const sourceById = new Map(evidenceLibrary.sources.map(source => [source.id, source]));
   const cleanEvidenceIds = value => Array.isArray(value)
@@ -147,19 +147,22 @@ module.exports = async function workoutCoach(req,res) {
     const source = sourceById.get(id);
     return source ? { id:source.id, title:source.title, organization:source.organization, year:source.year, evidenceType:source.evidenceType, url:source.url, limitations:source.limitations } : null;
   };
-  let catalogRows;
-  if (exerciseCatalogCache && Date.now() - exerciseCatalogCacheAt < EXERCISE_CATALOG_CACHE_MS) {
-    catalogRows = exerciseCatalogCache;
-  } else {
-    try {
-      const catalogResponse=await fetch(supabaseUrl+"/rest/v1/exercise_catalog?select=id,name_th,name_en,category,movement_pattern,primary_muscles,secondary_muscles,equipment,level,exercise_type,setup,steps,breathing,common_mistakes,cautions,progressions,regressions,source_ids,evidence_note&is_active=eq.true&order=category.asc&limit=200",{
-        headers:{apikey:publishableKey,Authorization:"Bearer "+token}
-      });
-      if(!catalogResponse.ok) return json(res,502,{error:"โหลดคลังท่าฝึกไม่สำเร็จ กรุณาลองใหม่"});
-      catalogRows=await catalogResponse.json();
-      exerciseCatalogCache=Array.isArray(catalogRows)?catalogRows:null;
-      exerciseCatalogCacheAt=Date.now();
-    } catch { return json(res,503,{error:"เชื่อมต่อฐานข้อมูลท่าฝึกไม่สำเร็จ"}); }
+  const needsExerciseCatalog=topics.some(topic=>["exercise_plan","exercise_technique","equipment_location"].includes(topic));
+  let catalogRows=[];
+  if(needsExerciseCatalog) {
+    if(exerciseCatalogCache && Date.now()-exerciseCatalogCacheAt<EXERCISE_CATALOG_CACHE_MS) {
+      catalogRows=exerciseCatalogCache;
+    } else {
+      try {
+        const catalogResponse=await fetch(supabaseUrl+"/rest/v1/exercise_catalog?select=id,name_th,name_en,category,movement_pattern,primary_muscles,secondary_muscles,equipment,level,exercise_type,setup,steps,breathing,common_mistakes,cautions,progressions,regressions,source_ids,evidence_note&is_active=eq.true&order=category.asc&limit=200",{
+          headers:{apikey:publishableKey,Authorization:"Bearer "+token}
+        });
+        if(!catalogResponse.ok)return json(res,502,{error:"โหลดคลังท่าฝึกไม่สำเร็จ กรุณาลองใหม่"});
+        catalogRows=await catalogResponse.json();
+        exerciseCatalogCache=Array.isArray(catalogRows)?catalogRows:null;
+        exerciseCatalogCacheAt=Date.now();
+      } catch { return json(res,503,{error:"เชื่อมต่อฐานข้อมูลท่าฝึกไม่สำเร็จ"}); }
+    }
   }
   const catalogExercises=catalogRows.map(row=>({
     id:row.id,name:row.name_th+" ("+row.name_en+")",movementPattern:row.movement_pattern,
@@ -169,15 +172,30 @@ module.exports = async function workoutCoach(req,res) {
     caution:(row.cautions||[]).join(" "),progression:(row.progressions||[]).join(" "),
     setup:row.setup,commonMistakes:row.common_mistakes||[],evidenceNote:row.evidence_note
   }));
-  const exerciseById = new Map(catalogExercises.map(exercise => [exercise.id, exercise]));
+  const exerciseById=new Map(catalogExercises.map(exercise=>[exercise.id,exercise]));
   const equipmentStatus=profile?.equipmentStatus||"unknown";
   const equipmentText=[profile?.equipmentDetails,profile?.equipment].filter(Boolean).join(" ").toLowerCase();
-  const modelExercises=catalogExercises.filter(exercise=>{
-    const required=Array.isArray(exercise.equipment)?exercise.equipment:[];
-    if(!required.length||required.every(item=>item==="ไม่มีอุปกรณ์")) return true;
-    if(equipmentStatus!=="known"||!equipmentText.trim()) return false;
+  const optionalSupport=["เสื่อออกกำลังกาย","พื้นที่เดิน"];
+  const compatibleExercises=catalogExercises.filter(exercise=>{
+    const required=(Array.isArray(exercise.equipment)?exercise.equipment:[]).filter(item=>!optionalSupport.includes(String(item)));
+    if(equipmentStatus==="none")return required.length===0||required.every(item=>item==="ไม่มีอุปกรณ์");
+    if(equipmentStatus!=="known"||!equipmentText.trim())return required.length===0||required.every(item=>item==="ไม่มีอุปกรณ์");
     return required.every(item=>equipmentText.includes(String(item).toLowerCase()));
-  }).slice(0,45);
+  });
+  const levelRank=level=>profile?.experience==="มือใหม่"?({"เริ่มต้น":0,"ปานกลาง":1,"สูง":2}[level]??3):profile?.experience==="ระดับกลาง"||profile?.experience==="มีประสบการณ์มาก"?({"ปานกลาง":0,"เริ่มต้น":1,"สูง":2}[level]??3):({"เริ่มต้น":0,"ปานกลาง":1,"สูง":2}[level]??3);
+  const queryText=message.toLowerCase();
+  const orderedCandidates=compatibleExercises.slice().sort((a,b)=>{
+    const aMatch=queryText.includes(a.name.toLowerCase())?0:1,bMatch=queryText.includes(b.name.toLowerCase())?0:1;
+    return aMatch-bMatch||levelRank(a.level)-levelRank(b.level)||a.movementPattern.localeCompare(b.movementPattern,"th")||a.name.localeCompare(b.name,"th");
+  });
+  // Keep at most two useful progressions per movement pattern; preserve distinct regressions and equipment variants in the master catalog.
+  const patternCounts=new Map(),modelExercises=[];
+  for(const exercise of orderedCandidates) {
+    const pattern=exercise.movementPattern||exercise.id,count=patternCounts.get(pattern)||0;
+    if(count>=2)continue;
+    modelExercises.push(exercise);patternCounts.set(pattern,count+1);
+    if(modelExercises.length>=18)break;
+  }
   const requestId=randomUUID();
   let quotaReservation=null;
   try {
@@ -197,37 +215,33 @@ module.exports = async function workoutCoach(req,res) {
     return json(res,reason==="quota_exceeded"||reason==="quota_disabled"?429:403,{error:text,quota:quotaReservation});
   }
   const refundQuota=async()=>{try{await fetch(supabaseUrl+"/rest/v1/rpc/refund_gemini_quota",{method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_request_id:requestId})});}catch{}};
-  const evidenceContext = {
-    version: evidenceLibrary.version,
-    catalogCount:catalogExercises.length,
-    principles: evidenceLibrary.principles.map(({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations}) => ({id,title,summary,application,sourceIds,evidenceStrengthNote,limitations})),
-    // Technique instructions are added from the trusted catalog after generation;
-    // send only selection metadata to Gemini to reduce prompt size and latency.
-    exercises: modelExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote}) => ({id,name,movementPattern,targetMuscles,equipment,level,sourceIds,evidenceNote})),
-    sources: evidenceLibrary.sources.map(({id,title,organization,year,evidenceType,summary,limitations,url}) => ({id,title,organization,year,evidenceType,summary,limitations,url})),
-    coverageLimitations: evidenceLibrary.coverageLimitations
+  const includeExerciseEvidence=topics.some(topic=>topic!=="nutrition");
+  const includeNutritionEvidence=topics.includes("nutrition");
+  const relevantPrinciples=evidenceLibrary.principles.filter(principle=>principle.domain==="nutrition"?includeNutritionEvidence:includeExerciseEvidence);
+  const usedSourceIds=new Set(relevantPrinciples.flatMap(principle=>principle.sourceIds||[]));
+  const evidenceContext={
+    version:evidenceLibrary.version,
+    principles:relevantPrinciples.map(({id,title,summary,application,sourceIds,limitations})=>({id,title,summary,application,sourceIds,limitations})),
+    exercises:modelExercises.map(({id,name,movementPattern,targetMuscles,equipment,level,sourceIds})=>({id,name,movementPattern,targetMuscles,equipment,level,sourceIds})),
+    sources:evidenceLibrary.sources.filter(source=>usedSourceIds.has(source.id)).map(({id,title,organization,year,evidenceType,url})=>({id,title,organization,year,evidenceType,url})),
+    coverageLimitations:needsExerciseCatalog?evidenceLibrary.coverageLimitations:[]
   };
-  const systemInstruction=`คุณคือโค้ชออกกำลังกายสำหรับผู้ใหญ่สุขภาพดีที่เพิ่งเริ่มฝึก ตอบภาษาไทยเป็นหลัก สุภาพ เป็นกันเอง และอธิบายเหตุผล
-คุณได้รับฐานความรู้ที่คัดเลือกไว้ใน evidenceBase ซึ่งมีหลักการฝึก แค็ตตาล็อกท่าที่อนุมัติ และแหล่งอ้างอิง ห้ามอ้างว่าค้นเว็บหรือฐานข้อมูลอื่นในคำขอนี้ เพราะระบบไม่ได้เปิดการค้นเว็บ
-ใช้หลักฐานจาก evidenceBase เป็นหลักในการตัดสินใจ แยกให้ชัดระหว่าง (1) หลักฐานสนับสนุนหลักการจัดโปรแกรม (2) คำแนะนำเทคนิคของท่าจากคู่มือ และ (3) การประยุกต์ตามข้อมูลผู้ใช้ ห้ามอ้างว่างานวิจัยทดสอบท่าใดโดยตรง หากแหล่งข้อมูลไม่ได้ระบุเช่นนั้น
-เลือกท่าได้เฉพาะ exerciseId ที่อยู่ใน evidenceBase.exercises เท่านั้น ห้ามแต่งชื่อท่าใหม่หรืออ้าง exerciseId ที่ไม่มีอยู่ ระบุ rationale ว่าเลือกท่านั้นเพราะอะไรเมื่อเทียบกับเป้าหมาย ประสบการณ์ อุปกรณ์ และความพร้อม
-อ้างอิงได้เฉพาะ source id ที่มีอยู่ใน evidenceBase.sources เท่านั้น หากไม่พบหลักฐานตรง ให้บอกข้อจำกัด ห้ามสร้างชื่อแหล่ง ปี DOI หรือลิงก์ขึ้นเอง
-สำหรับผู้เริ่มต้นให้เน้นความสม่ำเสมอ การควบคุมท่า และการเพิ่มระดับทีละน้อย ไม่บังคับให้เริ่มด้วยปริมาณสูงประมาณ 10 เซ็ตต่อกลุ่มกล้ามเนื้อต่อสัปดาห์ ตัวเลขดังกล่าวเป็นข้อมูลประกอบการเพิ่มปริมาณในอนาคต ไม่ใช่เกณฑ์เริ่มต้นสำหรับทุกคน ไม่จำเป็นต้องฝึกจนหมดแรงทุกเซ็ต
-พิจารณาความถี่รายสัปดาห์ ปริมาณฝึก การพัก และการกระจายกล้ามเนื้อ ห้ามฝึกกล้ามเนื้อเดิมหนักซ้ำติดกัน เลือกท่าจากคลังตามอุปกรณ์ที่ผู้ใช้ระบุเท่านั้น หากอุปกรณ์ไม่รองรับการฝึกกล้ามเนื้อกลุ่มใดอย่างเพียงพอ ให้บอกข้อจำกัดตรง ๆ และห้ามอ้างท่าคนละรูปแบบว่าทดแทนกันได้ รายการที่ evidenceNote ระบุว่ายังไม่ได้ทบทวนโดยผู้เชี่ยวชาญเป็นเพียงคำอธิบายทั่วไป ห้ามอ้างว่าเป็นเทคนิคที่ผ่านการรับรองหรือมีหลักฐานทดลองเฉพาะท่า และต้องใช้คำแนะนำอย่างระมัดระวัง
-ใช้โปรไฟล์การฝึก สถานที่ฝึก สถานะอุปกรณ์และชนิดอุปกรณ์ ข้อมูลร่างกายย้อนหลัง ความพร้อมรายวัน ข้อความ และประวัติการฝึกที่ได้รับ ห้ามอ้างว่ารู้ข้อมูลที่ไม่ได้รับ หากอุปกรณ์ระบุว่าไม่มี ให้เลือกเฉพาะท่าที่ไม่ต้องใช้อุปกรณ์ หากมีแต่ไม่ทราบชนิด ห้ามเดาเครื่องเล่นหรือจัดท่าที่ต้องใช้อุปกรณ์ ให้ถามผู้ใช้เพื่อระบุชนิดก่อน หรือเสนอเฉพาะทางเลือกที่ไม่ต้องใช้อุปกรณ์อย่างชัดเจน หากมีสถานที่/อุปกรณ์ที่ระบุได้ ให้เลือกท่าที่ตรงกับรายการนั้นเท่านั้น พิจารณาน้ำหนัก/ส่วนสูงเป็นแนวโน้ม ไม่ใช้ BMI ตัดสินความสามารถฝึก ตรวจสอบการนอน พลังงาน ความล้ากล้ามเนื้อ และอาการเจ็บก่อนเพิ่มความหนัก หากข้อมูลขัดแย้งหรือไม่พอให้ถามก่อน ไม่คาดเดาค่าที่หายไป
-ความปลอดภัย: ห้ามวินิจฉัยโรคหรือการบาดเจ็บ หากมีอาการเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้แนะนำหยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก อย่าเพิ่มความหนักหากล้ามาก นอนน้อย หรือฟื้นตัวไม่ดี และให้มีวันพัก
-สร้างแผนเมื่อข้อมูลพอและไม่มีสัญญาณเตือน ระบุเซ็ต ครั้ง/ระยะเวลา เวลาพักและกล้ามเนื้อเป้าหมาย พร้อมวิธีเตรียมท่า ขั้นตอน 3-6 ข้อ การหายใจ ข้อผิดพลาดที่พบบ่อย และข้อควรระวัง แยกหัวข้อคำตอบตามหมวดที่ได้รับใน topicCategories และตอบภาษาไทยเป็นหลัก
-ให้คำแนะนำโภชนาการทุกครั้งที่สร้างแผนฝึกอย่างกระชับ 2-3 ข้อ โดยพิจารณา nutritionHistory/nutritionTargets ถ้ามีข้อมูล เช่น แหล่งโปรตีนที่เข้าถึงง่าย มื้ออาหารก่อน/หลังฝึก และความสมดุลของอาหาร ห้ามเดาปริมาณอาหารที่ผู้ใช้กินจริงหรือสร้างตัวเลขแคลอรี/สารอาหารที่ไม่มีข้อมูล หากถามเรื่องอาหารโดยตรง ให้ตอบเป็นหมวดโภชนาการพร้อมตัวอย่างอาหารไทยที่ทำได้จริง ระบุว่าค่าประมาณต้องอาศัยปริมาณและวิธีปรุง และไม่วินิจฉัยหรือรักษาโรค
-ถ้าคำถามมีหลายประเด็น ให้แยกคำตอบเป็นหัวข้อ ไม่รวมทุกเรื่องเป็นย่อหน้าเดียว
-หากควรพัก ให้ restDay=true และ items=[] หากข้อมูลไม่พอให้ถามเพิ่มและ hasPlan=false แผนเป็นเพียงข้อเสนอ ผู้ใช้ต้องยืนยันก่อนบันทึก
-ส่ง JSON ตาม schema เท่านั้น ต้องส่ง evidenceIds ระดับคำตอบ, evidenceSummary/evidenceIds ระดับแผน และ rationale/evidenceIds ต่อท่า โดยใช้เฉพาะ ID ที่มีอยู่ในฐานความรู้`;
+  const systemInstruction=`คุณคือโค้ชสุขภาพและการฝึกสำหรับผู้ใหญ่ ตอบภาษาไทยเป็นหลัก กระชับ ชัดเจน และอิงข้อมูลที่ได้รับ
+ใช้เฉพาะหลักฐานใน evidenceBase; อ้างอิงได้เฉพาะ source ID ที่มีอยู่ ห้ามสร้างงานวิจัย ปี DOI หรือลิงก์ ห้ามอ้างว่าค้นเว็บ
+หากสร้างแผน ให้เลือกเฉพาะ exerciseId ใน evidenceBase.exercises และไม่เกิน 6 ท่า ระบุเหตุผล เซ็ต ครั้ง/เวลา เวลาพัก กล้ามเนื้อเป้าหมาย และข้อควรระวัง เทคนิคเฉพาะท่าต้องยึดข้อมูลจากคลังที่เชื่อถือได้ แยกหลักฐานระดับโปรแกรมออกจากคำอธิบายเทคนิคของท่า
+ปรับแผนตามเป้าหมาย ประสบการณ์ สถานที่ อุปกรณ์ ประวัติฝึก การนอน ความล้า และอาการเจ็บ ห้ามเดาข้อมูลที่ไม่มี หากไม่มีอุปกรณ์ให้เลือกเฉพาะท่าที่ไม่ต้องใช้อุปกรณ์ หากไม่ทราบชนิดอุปกรณ์ห้ามเดา
+หลักการฝึก: เน้นความสม่ำเสมอและ progressive resistance กระจายกล้ามเนื้อและวันพัก ไม่บังคับมือใหม่ให้เริ่มที่ 10 เซ็ตต่อกล้ามเนื้อต่อสัปดาห์ และไม่จำเป็นต้องฝึกจนหมดแรงทุกเซ็ต
+ความปลอดภัย: ไม่วินิจฉัยโรค หากเจ็บแปลบ เจ็บข้อ เจ็บหน้าอก หายใจลำบาก เวียนศีรษะ หน้ามืด มีไข้ หรืออาการผิดปกติ ให้หยุดฝึกและพิจารณาขอความช่วยเหลือทางการแพทย์ ห้ามสร้างแผนฝืนฝึก
+โภชนาการ: เมื่อสร้างแผนให้คำแนะนำ 2–3 ข้อ; เมื่อถามอาหารโดยตรงให้ตอบเป็นหมวดและยกตัวอย่างอาหารไทย ใช้หลักฐานโปรตีนเฉพาะเมื่ออยู่ใน evidenceBase และย้ำว่าใช้กับผู้ใหญ่สุขภาพดีที่ออกกำลังกาย ไม่กำหนดแคลอรีหรือปริมาณที่ไม่มีข้อมูล
+ถ้าข้อมูลไม่พอหรือมีสัญญาณเสี่ยง ให้ถามเพิ่มหรือแนะนำพัก โดย hasPlan=false; ถ้าควรพักให้ restDay=true และ items=[]
+ตอบ JSON ตาม schema เท่านั้น ใส่ evidenceIds ในระดับคำตอบ แผน และท่า โดยเลือกเฉพาะ ID ที่ได้รับ`;
   const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกและข้อมูลร่างกายที่บันทึกไว้สำหรับวันนี้",topicCategories:topics.map(topic=>({id:topic,label:TOPIC_LABELS[topic]})),trainingProfile:profile,bodyMeasurementHistory:bodyHistory,dailyReadinessHistory:readinessHistory,recentTrainingHistory:workouts,recentNutritionHistory:nutritionHistory,nutritionTargets,previousConversation:conversation,currentAcceptedPlan:existingPlan,evidenceBase:evidenceContext};
   try {
     const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
     const upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
       method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
       body:JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
-        generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.35,maxOutputTokens:1400}})
+        generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:1200,thinkingConfig:{thinkingLevel:"MINIMAL"}}})
     });
     const result=await upstream.json().catch(()=>({}));
     if(!upstream.ok) {
@@ -240,7 +254,7 @@ module.exports = async function workoutCoach(req,res) {
     let parsed; try{parsed=JSON.parse(raw)}catch{const match=raw.match(/\\{[\\s\\S]*\\}/);try{if(!match)throw new Error("no JSON");parsed=JSON.parse(match[0])}catch{await refundQuota();return json(res,502,{error:"รูปแบบคำตอบจาก Gemini ไม่ถูกต้อง กรุณาส่งอีกครั้ง"})}}
     const plan=parsed.plan&&typeof parsed.plan==="object"?parsed.plan:{};
     const planEvidenceIds=cleanEvidenceIds(plan.evidenceIds);
-    const safeItems=Array.isArray(plan.items)?plan.items.slice(0,8).map(item=>{
+    const safeItems=Array.isArray(plan.items)?plan.items.slice(0,6).map(item=>{
       const exerciseId=cleanText(item?.exerciseId,80);
       const catalog=exerciseById.get(exerciseId);
       if(!catalog) return null;
