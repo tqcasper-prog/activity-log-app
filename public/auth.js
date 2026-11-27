@@ -310,7 +310,7 @@
     loadData:loadCloudData,
     saveData:saveCloudData,
     getLoginHistory:async(limit=10)=>{const {data,error}=await client.from('user_login_history').select('event_type,user_agent,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(Math.min(Math.max(Number(limit)||10,1),50));if(error)throw error;return data||[];},
-    updateDisplayName:async(name)=>{const value=String(name||'').trim();if(value.length<2||value.length>60)throw new Error('ชื่อต้องมีความยาว 2–60 ตัวอักษร');const {data,error}=await client.from('profiles').update({display_name:value,updated_at:new Date().toISOString()}).eq('id',currentUser.id).select('email,display_name,role,account_status').single();if(error)throw error;profile=data;addUserActions();return profile;},
+    updateDisplayName:async(name)=>{const value=String(name||'').trim();if(value.length<2||value.length>60)throw new Error('ชื่อต้องมีความยาว 2–60 ตัวอักษร');const {data,error}=await client.from('profiles').update({display_name:value}).eq('id',currentUser.id).select('email,display_name,role,account_status').single();if(error)throw error;profile=data;addUserActions();return profile;},
     changePassword:async(currentPassword,newPassword)=>{if(!currentPassword||String(newPassword||'').length<8)throw new Error('กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่อย่างน้อย 8 ตัวอักษร');const {error:verifyError}=await client.auth.signInWithPassword({email:currentUser.email,password:currentPassword});if(verifyError)throw new Error('รหัสผ่านปัจจุบันไม่ถูกต้อง');const {error}=await client.auth.updateUser({password:newPassword});if(error)throw error;return true;},
     signOut:async()=>client?.auth.signOut()
   };
