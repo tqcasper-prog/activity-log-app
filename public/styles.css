@@ -231,3 +231,14 @@ body.lhp-reduce-motion *,body.lhp-reduce-motion *::before,body.lhp-reduce-motion
   :root[data-theme="system"] textarea:focus-visible{outline:2px solid #9ce9c1;outline-offset:2px}
   :root[data-theme="system"] ::selection{background:#397454;color:#fff}
 }
+
+
+/* Inline visual references for AI coaching */
+.exercise-media-inline{max-width:260px;margin-top:8px}
+.exercise-media-inline .exercise-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.exercise-media-inline .exercise-photo-grid img{height:96px}
+.coach-image-panel{margin:10px 0 12px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.coach-image-panel>.muted{font-weight:700;margin-bottom:7px}
+.coach-image-panel .exercise-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.coach-image-panel .exercise-photo-grid img{height:150px}
+@media(max-width:520px){.exercise-media-inline{max-width:210px}.coach-image-panel .exercise-photo-grid img{height:120px}}
