@@ -412,8 +412,12 @@
       render();
     } catch (error) {
       console.error('เปิดระบบจัดเก็บข้อมูลบนคลาวด์ไม่สำเร็จ', error);
-      notice = 'ซิงก์ข้อมูลไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อและลองใหม่';
-      render();
+      notice = 'โหลดข้อมูลบัญชีไม่สำเร็จ จึงระงับการแก้ไขชั่วคราวเพื่อป้องกันการเขียนทับข้อมูลเดิม';
+      $('#nav').innerHTML = '';
+      $('#status').textContent = 'ยังไม่ได้ซิงก์ข้อมูล';
+      $('#notice').textContent = notice;
+      $('#view').innerHTML = '<section class="panel"><h2>ไม่สามารถโหลดข้อมูลบัญชีได้</h2><p class="muted">ระบบจะไม่เปิดหน้าแก้ไขข้อมูลจนกว่าจะโหลดข้อมูลจากฐานข้อมูลสำเร็จ เพื่อป้องกันการเขียนทับข้อมูลเดิม</p><button type="button" class="primary-button" id="retry-cloud-load">ลองโหลดอีกครั้ง</button></section>';
+      $('#retry-cloud-load')?.addEventListener('click',initializeStorage);
     }
   }
   initializeStorage();
