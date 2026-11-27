@@ -63,8 +63,10 @@ module.exports = async function workoutCoach(req,res) {
     pain:cleanText(item?.pain,240)
   })): [];
   const readinessHistory=Array.isArray(body.readinessHistory)?body.readinessHistory.slice(0,7).map(item=>({
-    date:cleanText(item?.date,10),sleep:Number.isFinite(Number(item?.sleep))?Number(item.sleep):null,
-    energy:Number.isFinite(Number(item?.energy))?Number(item.energy):null,soreness:Number.isFinite(Number(item?.soreness))?Number(item.soreness):null,
+    date:cleanText(item?.date,10),sleep:item?.sleep==null||item.sleep===""?null:Math.min(24,Math.max(0,Number(item.sleep))),
+    daytimeRestMinutes:item?.daytimeRestMinutes==null||item.daytimeRestMinutes===""?null:Math.min(1440,Math.max(0,Number(item.daytimeRestMinutes))),
+    trainingMinutes:item?.trainingMinutes==null||item.trainingMinutes===""?null:Math.min(600,Math.max(0,Number(item.trainingMinutes))),
+    energy:item?.energy==null||item.energy===""?null:Math.min(5,Math.max(1,Number(item.energy))),soreness:item?.soreness==null||item.soreness===""?null:Math.min(5,Math.max(1,Number(item.soreness))),stress:item?.stress==null||item.stress===""?null:Math.min(5,Math.max(1,Number(item.stress))),
     pain:cleanText(item?.pain,240),notes:cleanText(item?.notes,240)
   })): [];
   const existingPlan=body.existingPlan&&typeof body.existingPlan==="object"?{
