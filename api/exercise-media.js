@@ -5,7 +5,7 @@ module.exports=async function exerciseMedia(req,res){
   const q=typeof req.query?.q==="string"?req.query.q.trim().slice(0,100):"";
   if(!q)return json(res,400,{error:"กรุณาระบุชื่อท่าออกกำลังกาย"});
   try{
-    const url="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+encodeURIComponent("filetype:bitmap "+q+" exercise demonstration")+"&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480&format=json&origin=*";
+    const url="https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch="+encodeURIComponent(q+" exercise")+"&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480&format=json&origin=*";
     const upstream=await fetch(url,{headers:{"User-Agent":"LifeHealthPlanner/1.0 (exercise reference images)"}});
     if(!upstream.ok)return json(res,502,{error:"Image source unavailable"});
     const data=await upstream.json();
