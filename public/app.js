@@ -193,9 +193,10 @@
       if(message.role==='user') return '<div class="coach-message user"><b>คุณ</b><p>'+esc(message.text)+'</p></div>';
       const result=message.result||{}, plan=result.hasPlan?result.plan:null;
       const topicMarkup=Array.isArray(result.topicLabels)&&result.topicLabels.length?'<div class="button-row">'+result.topicLabels.map(label=>'<span class="pill">'+esc(label)+'</span>').join('')+'</div>':'';
+      const foodMarkup=Array.isArray(result.foodSuggestions)&&result.foodSuggestions.length?'<div class="notice subtle"><b>เมนูอาหารที่แนะนำ</b><ul>'+result.foodSuggestions.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul></div>':'';
       const nutritionMarkup=Array.isArray(result.nutritionAdvice)&&result.nutritionAdvice.length?'<div class="notice subtle"><b>คำแนะนำโภชนาการ</b><ul>'+result.nutritionAdvice.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul></div>':'';
       const planMarkup=plan?'<div class="ai-plan"><b>'+esc(plan.title||'แผนฝึก')+'</b><p>'+esc(plan.reason||'')+'</p>'+renderPlanTable(plan)+'<button type="button" class="secondary-button" data-apply-plan="'+(data.coachMessages||[]).indexOf(message)+'">ยืนยันใช้แผนนี้</button></div>':'';
-      return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b>'+topicMarkup+'<p>'+esc(result.reply||'')+'</p>'+(result.imageQuery?'<div class="coach-image-panel"><div class="muted small-text">ภาพประกอบคำตอบ</div><div class="exercise-media" data-coach-image="'+esc(result.imageQuery)+'"><span class="muted small-text">กำลังค้นหาภาพที่เกี่ยวข้อง…</span></div></div>':'')+nutritionMarkup+renderEvidenceLinks(result.evidence,'แหล่งอ้างอิงประกอบคำตอบ')+planMarkup+'</div>';
+      return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b>'+topicMarkup+'<p>'+esc(result.reply||'')+'</p>'+(result.imageQuery?'<div class="coach-image-panel"><div class="muted small-text">ภาพประกอบคำตอบ</div><div class="exercise-media" data-coach-image="'+esc(result.imageQuery)+'"><span class="muted small-text">กำลังค้นหาภาพที่เกี่ยวข้อง…</span></div></div>':'')+foodMarkup+nutritionMarkup+renderEvidenceLinks(result.evidence,'แหล่งอ้างอิงประกอบคำตอบ')+planMarkup+'</div>';
     }).join('');
   }
   async function askWorkoutCoach(text) {
