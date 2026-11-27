@@ -267,7 +267,7 @@ This update is an incremental working baseline, not a claim that all M0–M7 acc
 
 - The Exercise page now calls a same-origin Vercel serverless endpoint at `POST /api/workout-coach`; the Gemini API key is read only from the server-side `GEMINI_API_KEY` environment variable and is never shipped to browser JavaScript.
 - Default model: `gemini-3.5-flash-lite` (Gemini API Free Tier). An optional server-side `GEMINI_MODEL` variable can override the model.
-- The endpoint sends only the selected date, the message submitted to the coach, up to six recent coach conversation turns, up to twelve recent workout records (date, exercise, sets, reps, effort, and notes), and the accepted workout plan for that date. It does not send body measurements, nutrition records, or unrelated activity/time logs.
+- The endpoint sends the selected date, user message, up to six recent conversation turns, up to twelve recent workout records, the accepted plan for that date, and (when the profile sharing option is enabled) the training profile plus up to five body-measurement and seven readiness records. When sharing is disabled, profile/body/readiness data are omitted, but the message, conversation, workout history, and accepted plan are still sent because they are required for the coach request. Nutrition entries and unrelated life activities/time logs are not sent.
 - The endpoint validates and truncates inputs, restricts cross-origin browser requests, applies a best-effort per-instance IP rate limit, disables caching, and returns structured JSON. The key must be configured in Vercel Project Settings → Environment Variables; without it the API returns a clear configuration error.
 - Gemini may return a proposed workout plan. The website displays the proposal but does not change the saved plan until the user explicitly confirms it. Accepted plans are stored in browser localStorage under `lhp_v2` as `workoutPlans`.
 - Privacy notice: Google states that content submitted through the Gemini API Free Tier may be used to improve its products. Users should avoid including identifying details or highly sensitive health information. Free-tier availability and quotas can change; reaching a quota limit does not automatically switch the project to a paid tier.
@@ -279,3 +279,15 @@ This update is an incremental working baseline, not a claim that all M0–M7 acc
 - The first implementation used a local keyword/rule-based helper to suggest training or recovery from saved sessions.
 - That local-only conversational implementation has been superseded by the Gemini AI integration described below. The domain rule engine remains in the codebase for offline/reference use, but the Exercise page's chat now calls the server-side Gemini endpoint.
 - The helper is not a medical assessment. Stop if pain, dizziness, or unusual symptoms occur and seek qualified care when symptoms are severe or persistent.
+
+
+### Curated exercise evidence base (2026-11-27)
+
+- Added the server-side static knowledge file `data/exercise-evidence.json`, versioned and reviewed on 2026-11-27. It contains evidence principles, a controlled beginner exercise catalog, source metadata, limitations, and explicit coverage gaps.
+- Primary programming evidence: ACSM 2026 Position Stand / overview of 137 systematic reviews and more than 30,000 participants (PubMed PMID 41843416; DOI 10.1249/MSS.0000000000003897).
+- Public-health frequency context: WHO 2020 physical activity and sedentary behaviour guidelines.
+- Technique guidance for selected home exercises: NHS strength-exercise guidance, reviewed 28 February 2024.
+- The API includes the curated evidence subset in the Gemini prompt. Gemini must choose only catalog exercise IDs and cite only source IDs supplied by the server. The API resolves all source titles, years, organizations, and URLs from the trusted local file; model-generated URLs and invented references are not accepted.
+- Each recommended exercise can display its selection rationale and validated reference links. Plan-level guidance and technique instructions are labelled separately so a general resistance-training review is not misrepresented as a trial of a specific exercise.
+- The no-equipment catalog has a known limitation: it does not yet provide a sufficiently loaded pulling exercise for back development. The assistant must disclose this gap rather than claiming a non-pulling movement replaces rows or pulldowns.
+- The evidence library is curated and versioned, not a live literature search. It must be reviewed and updated manually when authoritative guidance changes. Evidence applies to the population and outcomes described by each source and does not replace individual assessment or medical advice.
