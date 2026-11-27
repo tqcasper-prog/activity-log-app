@@ -207,7 +207,9 @@
       bindAuthForm();
       const {data,error}=await client.auth.getSession();
       if(error)throw error;
-      if(data.session)await setUser(data.session.user);else setUser(null);
+      const recoveryFlow=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery';
+      if(recoveryFlow) showRecoveryForm();
+      else if(data.session)await setUser(data.session.user);else setUser(null);
       client.auth.onAuthStateChange(async(event,session)=>{
         if(event==='SIGNED_IN'&&session?.user){try{await setUser(session.user);}catch(error){message(error.message);}}
         if(event==='PASSWORD_RECOVERY'){showRecoveryForm();}
