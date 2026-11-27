@@ -2,6 +2,33 @@
   'use strict';
   const D = window.LHPDomain;
   const KEY = 'lhp_v2';
+
+  const COACH_QUOTA_KEY = 'lhp_gemini_free_usage_v1';
+  const FREE_REFERENCE_RPD = 500;
+  function pacificDay(date=new Date()) {
+    return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+  }
+  function quotaResetLabel() {
+    const now=new Date(), day=pacificDay(now);
+    let next=new Date(now.getTime()+60*60*1000);
+    while(pacificDay(next)===day) next=new Date(next.getTime()+60*60*1000);
+    return next.toLocaleString('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'medium',timeStyle:'short'});
+  }
+  function coachUsage() {
+    try { const saved=JSON.parse(localStorage.getItem(COACH_QUOTA_KEY)||'null'); if(saved&&saved.day===pacificDay()&&Number.isFinite(saved.count)) return saved; } catch {}
+    return {day:pacificDay(),count:0};
+  }
+  function recordCoachRequest() {
+    const usage=coachUsage(); usage.count++;
+    try { localStorage.setItem(COACH_QUOTA_KEY,JSON.stringify(usage)); } catch {}
+  }
+  function coachQuotaMarkup() {
+    const usage=coachUsage(), remaining=Math.max(0,FREE_REFERENCE_RPD-usage.count), percent=Math.min(100,usage.count/FREE_REFERENCE_RPD*100);
+    const warning=percent>=90?'ใกล้ถึงเพดานอ้างอิงแล้ว':percent>=75?'เริ่มใช้โควต้าค่อนข้างมาก':'ยังอยู่ในช่วงใช้งานปกติ';
+    return '<div class="gemini-quota"><div class="quota-heading"><b>Gemini · Free Tier</b><span>'+warning+'</span></div><div class="quota-numbers"><strong>'+usage.count.toLocaleString('th-TH')+'</strong><span>คำขอจากเบราว์เซอร์นี้วันนี้</span><strong>'+remaining.toLocaleString('th-TH')+'</strong><span>คงเหลือโดยประมาณ*</span></div><div class="quota-track"><i style="width:'+percent+'%"></i></div><small>*เทียบกับตัวเลขอ้างอิง 500 คำขอ/วัน ไม่ใช่ยอดคงเหลือจริงของ Google โควต้าจริงขึ้นกับโมเดลและการใช้งานทั้งโปรเจกต์</small><small>รีเซ็ตตามเวลาเที่ยงคืนแปซิฟิก · เวลาไทยโดยประมาณ: '+esc(quotaResetLabel())+'</small><small class="quota-safety">Free Tier ไม่มีค่าใช้จ่ายตามโควต้าฟรี หากเกินขีดจำกัดจะได้รับข้อผิดพลาดและต้องรอรีเซ็ต ระบบไม่สลับไปใช้แพ็กเกจเสียเงิน</small></div>';
+  }
+  function renderCoachQuotaOnly(){const node=$('.gemini-quota');if(node)node.outerHTML=coachQuotaMarkup();}
+
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const today = () => D.localDate();
@@ -132,6 +159,7 @@
     const payload={date:selectedDate,message:text||'จากประวัติที่บันทึกไว้ ช่วยประเมินว่าควรฝึกหรือพักวันนี้',conversation:prior,workouts:history,existingPlan:(data.workoutPlans||[]).filter(plan=>plan.date===selectedDate).slice(-1)[0]||null};
     if(text){data.coachMessages.push({role:'user',text,date:selectedDate,createdAt:new Date().toISOString()});data.coachMessages=data.coachMessages.slice(-16);renderCoachMessagesOnly();}
     submit.disabled=true;submit.textContent='กำลังคิดแผน…';
+    recordCoachRequest(); renderCoachQuotaOnly();
     try {
       const response=await fetch('/api/workout-coach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const body=await response.json().catch(()=>({}));
@@ -173,7 +201,7 @@
     const sessions=data.workouts.filter(x=>x.date===selectedDate).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
     const activePlan=(data.workoutPlans||[]).find(item=>item.date===selectedDate);
     const planCard=activePlan?card('แผนฝึกที่ยืนยันแล้ว','<p><b>'+esc(activePlan.title)+'</b></p><p class="muted small-text">'+esc(activePlan.reason||'')+'</p>'+renderPlanTable(activePlan)+'<p class="muted small-text">ยืนยันเมื่อ '+new Date(activePlan.acceptedAt).toLocaleString('th-TH')+'</p>'):'';
-    const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p><div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear" title="ล้างเฉพาะประวัติข้อความแชท ไม่ลบแผนฝึกหรือบันทึกการออกกำลังกาย">ล้างประวัติแชท</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
+    const coach=card('โค้ชออกกำลังกาย AI','<p class="muted small-text">คุยภาษาไทยได้ตามปกติ เล่าการฝึก ความล้า หรือถามเรื่องท่าและการพัก โค้ชจะพิจารณาประวัติที่บันทึกในเว็บไซต์และเสนอแผนให้คุณยืนยันก่อนใช้งาน</p>'+coachQuotaMarkup()+'<div class="coach-conversation">'+renderCoachConversation()+'</div><form id="coach-form" class="coach-form"><textarea id="coach-input" name="message" rows="3" maxlength="1200" placeholder="เช่น เมื่อวานวิดพื้น 2 เซ็ต วันนี้รู้สึกตึงแขนเล็กน้อย ควรฝึกอะไรดี?"></textarea><div class="button-row"><button class="primary-button" type="submit">ส่งข้อความ</button><button class="secondary-button" type="button" id="coach-history">วิเคราะห์จากประวัติที่บันทึก</button><button class="text-button" type="button" id="coach-clear" title="ล้างเฉพาะประวัติข้อความแชท ไม่ลบแผนฝึกหรือบันทึกการออกกำลังกาย">ล้างประวัติแชท</button></div></form><p class="muted small-text">ใช้ Gemini API Free Tier ผ่านเซิร์ฟเวอร์ ข้อมูลที่ส่งมีเฉพาะข้อความ ประวัติฝึกที่เกี่ยวข้อง และแผนฝึกปัจจุบัน ไม่ส่งข้อมูลร่างกายหรือโภชนาการโดยอัตโนมัติ</p>','coach-panel');
     return '<div class="page-title"><div><p class="eyebrow">MOVE & RECOVER</p><h1>ออกกำลังกาย</h1><p class="muted">บันทึกผลและใช้ผู้ช่วยวางแผนจากสิ่งที่ทำจริง</p></div><div class="date-control"><input type="date" id="exercise-date" value="'+selectedDate+'"></div></div>'+
       coach+planCard+
       card('คลังท่าฝึกพื้นฐาน',exerciseLibrary.map((x,i)=>'<details class="exercise-item"><summary><span><b>'+x.name+'</b><small>'+x.target+' · '+x.level+'</small></span><span class="pill">'+x.sets+' เซ็ต · '+x.reps+'</span></summary><p>'+x.steps+'</p><p class="muted small-text">ข้อควรระวัง: '+x.caution+'</p><button data-log-exercise="'+i+'" class="secondary-button">บันทึกการฝึกท่านี้</button></details>').join(''))+
