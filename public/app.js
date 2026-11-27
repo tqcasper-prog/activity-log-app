@@ -61,12 +61,15 @@
     saveQueue = saveQueue.catch(() => {}).then(() => window.LHPAuth.saveData(snapshot)).then(result => {
       notice = result && result.fallback ? message + ' (โหมดสำรองของเบราว์เซอร์)' : message;
       render();
+      return true;
     }).catch(error => {
       console.error('บันทึกข้อมูลไม่สำเร็จ', error);
-      notice = 'บันทึกไม่สำเร็จ กรุณาส่งออกข้อมูลสำรองและตรวจสอบพื้นที่จัดเก็บ';
+      notice = 'บันทึกไม่สำเร็จ: ' + String(error?.message || 'ไม่ทราบสาเหตุ') + ' · ข้อมูลยังไม่ยืนยันว่าถูกจัดเก็บ';
       render();
-      alert('บันทึกไม่สำเร็จ ข้อมูลที่แก้ไขครั้งนี้ยังไม่ยืนยันว่าถูกจัดเก็บ กรุณาส่งออกข้อมูลสำรองและลองใหม่');
+      alert('บันทึกไม่สำเร็จ: ' + String(error?.message || 'ไม่ทราบสาเหตุ') + '\nข้อมูลที่แก้ไขยังไม่ยืนยันว่าถูกจัดเก็บ กรุณาลองใหม่');
+      return false;
     });
+    return saveQueue;
   }
   function nav() {
     const items = [['overview','ภาพรวม','layout-dashboard'],['schedule','ตารางชีวิต','calendar-days'],['time','บันทึกเวลา','clock'],['exercise','ออกกำลังกาย','dumbbell'],['nutrition','โภชนาการ','utensils'],['body','ข้อมูลร่างกาย','activity'],['reports','รายงาน','chart-no-axes-combined'],['account','บัญชีของฉัน','user-round'],['settings','ตั้งค่า','settings']];
@@ -419,7 +422,30 @@
     $$('[data-delete-meal]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบรายการอาหารนี้หรือไม่?')){data.meals=data.meals.filter(x=>x.id!==b.dataset.deleteMeal);save()}}));
   }
   function bindBody() {
-    $('#training-profile-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget);const equipmentStatus=f.get('equipmentStatus'),equipmentDetails=f.get('equipmentDetails').trim();if(equipmentStatus==='known'&&!equipmentDetails)return alert('กรุณาระบุชนิดอุปกรณ์ หรือเลือกว่ามีอุปกรณ์แต่ยังไม่ทราบชนิด');data.trainingProfile={age:f.get('age')===''?null:Number(f.get('age')),sex:f.get('sex'),goal:f.get('goal'),experience:f.get('experience'),equipment:equipmentStatus==='none'?'ไม่มีอุปกรณ์':equipmentStatus==='unknown'?'มีอุปกรณ์แต่ไม่ทราบชนิด':equipmentDetails,equipmentStatus,equipmentDetails,trainingLocation:f.get('trainingLocation'),trainingLocationDetails:f.get('trainingLocationDetails').trim(),daysPerWeek:Number(f.get('daysPerWeek')),sessionMinutes:Number(f.get('sessionMinutes')),limitations:f.get('limitations').trim(),preferences:f.get('preferences').trim(),shareWithGemini:f.get('shareWithGemini')==='on',shareNutritionWithGemini:f.get('shareNutritionWithGemini')==='on',updatedAt:new Date().toISOString()};save('บันทึกโปรไฟล์การฝึกแล้ว')});
+    $('#training-profile-form').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const form=e.currentTarget, f=new FormData(form);
+      const equipmentStatus=String(f.get('equipmentStatus')||'unknown');
+      const equipmentDetails=String(f.get('equipmentDetails')||'').trim();
+      if(equipmentStatus==='known'&&!equipmentDetails){alert('กรุณาระบุชนิดอุปกรณ์ หรือเลือกว่ามีอุปกรณ์แต่ยังไม่ทราบชนิด');return;}
+      const profile={
+        age:f.get('age')===''?null:Number(f.get('age')),sex:String(f.get('sex')||''),goal:String(f.get('goal')||''),
+        experience:String(f.get('experience')||''),equipment:equipmentStatus==='none'?'ไม่มีอุปกรณ์':equipmentStatus==='unknown'?'มีอุปกรณ์แต่ไม่ทราบชนิด':equipmentDetails,
+        equipmentStatus,equipmentDetails,trainingLocation:String(f.get('trainingLocation')||'unknown'),
+        trainingLocationDetails:String(f.get('trainingLocationDetails')||'').trim(),daysPerWeek:Number(f.get('daysPerWeek')),
+        sessionMinutes:Number(f.get('sessionMinutes')),limitations:String(f.get('limitations')||'').trim(),
+        preferences:String(f.get('preferences')||'').trim(),shareWithGemini:f.get('shareWithGemini')==='on',
+        shareNutritionWithGemini:f.get('shareNutritionWithGemini')==='on',updatedAt:new Date().toISOString()
+      };
+      if(profile.age!==null&&(!Number.isFinite(profile.age)||profile.age<13||profile.age>100)){alert('กรุณาตรวจสอบอายุ');return;}
+      if(!Number.isInteger(profile.daysPerWeek)||profile.daysPerWeek<1||profile.daysPerWeek>7){alert('จำนวนวันฝึกต้องอยู่ระหว่าง 1–7 วัน');return;}
+      if(!Number.isInteger(profile.sessionMinutes)||profile.sessionMinutes<10||profile.sessionMinutes>180){alert('เวลาฝึกต้องอยู่ระหว่าง 10–180 นาที');return;}
+      const button=form.querySelector('button[type="submit"],button:not([type])');
+      if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
+      data.trainingProfile=profile;
+      const saved=await save('บันทึกโปรไฟล์การฝึกแล้ว');
+      if(!saved&&form.isConnected&&button){button.disabled=false;button.textContent='บันทึกข้อมูลโปรไฟล์การฝึก';}
+    });
     $('#body-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget),weight=Number(f.get('weight'));if(!(weight>0))return alert('กรุณากรอกน้ำหนักให้ถูกต้อง');const optional=k=>f.get(k)===''?null:Number(f.get(k));const entry={id:editingMeasurement?.id||uid(),date:f.get('date'),weight,height:optional('height'),waist:optional('waist'),sleep:optional('sleep'),restingHeartRate:optional('restingHeartRate'),energy:optional('energy'),soreness:optional('soreness'),pain:f.get('pain').trim(),water:optional('water'),notes:f.get('notes'),createdAt:editingMeasurement?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};if(editingMeasurement)data.measurements=data.measurements.map(x=>x.id===entry.id?entry:x);else data.measurements.push(entry);editingMeasurement=null;save('บันทึกประวัติร่างกายแล้ว')});
     $$('[data-edit-measurement]').forEach(b=>b.addEventListener('click',()=>{editingMeasurement=data.measurements.find(x=>x.id===b.dataset.editMeasurement);const form=$('#body-form');for(const [key,value] of Object.entries(editingMeasurement))if(form.elements[key]&&value!==null&&value!==undefined)form.elements[key].value=value;form.scrollIntoView({behavior:'smooth',block:'center'})}));
     $('[data-delete-measurement]').forEach(b=>b.addEventListener('click',()=>{if(confirm('ลบข้อมูลร่างกายรายการนี้หรือไม่?')){data.measurements=data.measurements.filter(x=>x.id!==b.dataset.deleteMeasurement);save()}}));
