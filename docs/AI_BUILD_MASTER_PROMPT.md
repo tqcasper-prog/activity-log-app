@@ -354,6 +354,20 @@ Supabase Free เป็นเพียงตัวเลือกที่แน
 - เอกสาร MD ระบุสถานะจริงและข้อจำกัดครบถ้วน
 - ไม่มีการเปลี่ยนแปลงนอกขอบเขตโดยไม่ได้รับอนุญาต
 
+## Evidence-based workout coach requirements
+
+When modifying the Gemini workout coach:
+
+- Keep the Gemini Free Tier unless the user explicitly approves a different cost model. Do not introduce paid search, vector database, or third-party subscriptions.
+- Use the reviewed, versioned server-side catalog at `data/exercise-evidence.json`; do not let the model invent source titles, years, DOI values, URLs, or exercise IDs.
+- Separate programming-level evidence from exercise-specific technique guidance. Never imply that an umbrella review tested a particular movement when it only supports resistance-training principles.
+- Resolve all visible citation metadata and URLs from the local trusted catalog on the server. Display the rationale for each exercise and clickable citations in the UI.
+- Constrain model exercise selection to approved catalog IDs. If no appropriate movement exists, disclose the gap or ask a question rather than inventing an exercise.
+- Preserve known catalog limitations, including lack of sufficiently loaded pulling movements when no equipment is available.
+- Treat the evidence library as a curated snapshot, not live literature retrieval. Include review dates, evidence scope, and limitations; update it only from authoritative sources.
+- Validate the returned exercise IDs and evidence IDs server-side before rendering or saving a plan. Ignore unknown IDs and model-provided citation URLs.
+- Keep personal data minimization and opt-in sharing behavior intact. Never add unrelated nutrition or life-activity data to Gemini payloads.
+
 ## 17. รูปแบบการสื่อสารกับผู้ใช้
 
 ก่อนเริ่ม ให้ตอบเป็นภาษาไทยด้วย:
