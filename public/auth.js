@@ -73,8 +73,10 @@
     let wrap=$('#lhp-user-actions');
     if(!wrap){wrap=document.createElement('div');wrap.id='lhp-user-actions';$('.top-actions')?.appendChild(wrap);}
     const label=profile?.display_name||currentUser.email;
-    wrap.innerHTML='<span style="font-size:11px;color:#718078;max-width:180px;overflow-wrap:anywhere">'+label.replace(/[&<>"]/g,'')+'</span><button type="button" id="lhp-login-history-open">ประวัติการเข้าสู่ระบบ</button>'+(profile?.role==='admin'?'<button type="button" id="lhp-admin-open">จัดการสมาชิก</button>':'')+'<button type="button" id="lhp-logout">ออกจากระบบ</button>';
+    const safeLabel=String(label).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    wrap.innerHTML='<span class="lhp-user-label">'+safeLabel+'</span><button type="button" id="lhp-account-open">บัญชีของฉัน</button><button type="button" id="lhp-login-history-open">ประวัติการเข้าสู่ระบบ</button>'+(profile?.role==='admin'?'<button type="button" id="lhp-admin-open">จัดการสมาชิก</button>':'')+'<button type="button" id="lhp-logout">ออกจากระบบ</button>';
     $('#lhp-logout')?.addEventListener('click',async()=>{await recordLoginEvent('sign_out');await client.auth.signOut();location.reload();});
+    $('#lhp-account-open')?.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('lhp:open-account')));
     $('#lhp-login-history-open')?.addEventListener('click',openLoginHistory);
     $('#lhp-admin-open')?.addEventListener('click',openAdmin);
   }
@@ -307,6 +309,9 @@
     getProfile:()=>profile,
     loadData:loadCloudData,
     saveData:saveCloudData,
+    getLoginHistory:async(limit=10)=>{const {data,error}=await client.from('user_login_history').select('event_type,user_agent,created_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(Math.min(Math.max(Number(limit)||10,1),50));if(error)throw error;return data||[];},
+    updateDisplayName:async(name)=>{const value=String(name||'').trim();if(value.length<2||value.length>60)throw new Error('ชื่อต้องมีความยาว 2–60 ตัวอักษร');const {data,error}=await client.from('profiles').update({display_name:value,updated_at:new Date().toISOString()}).eq('id',currentUser.id).select('email,display_name,role,account_status').single();if(error)throw error;profile=data;addUserActions();return profile;},
+    changePassword:async(currentPassword,newPassword)=>{if(!currentPassword||String(newPassword||'').length<8)throw new Error('กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่อย่างน้อย 8 ตัวอักษร');const {error:verifyError}=await client.auth.signInWithPassword({email:currentUser.email,password:currentPassword});if(verifyError)throw new Error('รหัสผ่านปัจจุบันไม่ถูกต้อง');const {error}=await client.auth.updateUser({password:newPassword});if(error)throw error;return true;},
     signOut:async()=>client?.auth.signOut()
   };
   window.LHPAuth=authApi;
