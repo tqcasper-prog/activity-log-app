@@ -442,9 +442,10 @@
       if(!Number.isInteger(profile.sessionMinutes)||profile.sessionMinutes<10||profile.sessionMinutes>180){alert('เวลาฝึกต้องอยู่ระหว่าง 10–180 นาที');return;}
       const button=form.querySelector('button[type="submit"],button:not([type])');
       if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
+      const previousProfile=data.trainingProfile;
       data.trainingProfile=profile;
       const saved=await save('บันทึกโปรไฟล์การฝึกแล้ว');
-      if(!saved&&form.isConnected&&button){button.disabled=false;button.textContent='บันทึกข้อมูลโปรไฟล์การฝึก';}
+      if(!saved){data.trainingProfile=previousProfile;render();}
     });
     $('#body-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget),weight=Number(f.get('weight'));if(!(weight>0))return alert('กรุณากรอกน้ำหนักให้ถูกต้อง');const optional=k=>f.get(k)===''?null:Number(f.get(k));const entry={id:editingMeasurement?.id||uid(),date:f.get('date'),weight,height:optional('height'),waist:optional('waist'),sleep:optional('sleep'),restingHeartRate:optional('restingHeartRate'),energy:optional('energy'),soreness:optional('soreness'),pain:f.get('pain').trim(),water:optional('water'),notes:f.get('notes'),createdAt:editingMeasurement?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};if(editingMeasurement)data.measurements=data.measurements.map(x=>x.id===entry.id?entry:x);else data.measurements.push(entry);editingMeasurement=null;save('บันทึกประวัติร่างกายแล้ว')});
     $$('[data-edit-measurement]').forEach(b=>b.addEventListener('click',()=>{editingMeasurement=data.measurements.find(x=>x.id===b.dataset.editMeasurement);const form=$('#body-form');for(const [key,value] of Object.entries(editingMeasurement))if(form.elements[key]&&value!==null&&value!==undefined)form.elements[key].value=value;form.scrollIntoView({behavior:'smooth',block:'center'})}));
