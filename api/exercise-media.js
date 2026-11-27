@@ -46,7 +46,7 @@ module.exports=async function exerciseMedia(req,res){
         const normalizedTitle=normalize(title);
         const tokens=normalize(term).split(" ").filter(word=>word.length>2&&!["exercise","fitness","bodyweight"].includes(word));
         const matches=tokens.filter(word=>normalizedTitle.includes(word)).length;
-        const required=kind==="exercise"?Math.max(1,Math.ceil(tokens.length*0.5)):Math.max(1,Math.ceil(tokens.length*0.35));
+        const required=kind==="exercise"?Math.max(1,tokens.length):Math.max(1,Math.ceil(tokens.length*0.5));
         if(matches<required) continue;
         const info=page.imageinfo?.[0],meta=info?.extmetadata||{};
         const strip=value=>String(value?.value||"").replace(/<[^>]*>/g,"").slice(0,180);
