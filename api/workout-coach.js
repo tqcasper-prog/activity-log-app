@@ -148,6 +148,7 @@ module.exports = async function workoutCoach(req,res) {
       evidenceIds:resolvedPlanEvidenceIds,evidence:resolvedPlanEvidenceIds.map(publicSource).filter(Boolean),
       items:safeItems
     };
+    if(safePlan.restDay) safePlan.items=[];
     const hasPlan=Boolean(parsed.hasPlan)&&(safePlan.restDay||safePlan.items.length>0);
     const responseEvidenceIds=cleanEvidenceIds(parsed.evidenceIds);
     const responseEvidence=responseEvidenceIds.map(publicSource).filter(Boolean);
