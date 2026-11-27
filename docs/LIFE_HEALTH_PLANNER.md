@@ -1,8 +1,8 @@
 # Life & Health Planner — Product & Technical Specification
 
 - Project: `tqcasper-prog/activity-log-app`
-- Feature branch: `feat/life-health-planner-prototype`
-- Status: Interactive prototype; local browser storage only
+- Feature branch: `feat/life-health-planner-working-app`
+- Status: Working app with incremental Supabase multi-user integration in progress
 - Last updated: 2026-11-18
 
 ## 1. Product goal
@@ -291,3 +291,20 @@ This update is an incremental working baseline, not a claim that all M0–M7 acc
 - Each recommended exercise can display its selection rationale and validated reference links. Plan-level guidance and technique instructions are labelled separately so a general resistance-training review is not misrepresented as a trial of a specific exercise.
 - The no-equipment catalog has a known limitation: it does not yet provide a sufficiently loaded pulling exercise for back development. The assistant must disclose this gap rather than claiming a non-pulling movement replaces rows or pulldowns.
 - The evidence library is curated and versioned, not a live literature search. It must be reviewed and updated manually when authoritative guidance changes. Evidence applies to the population and outcomes described by each source and does not replace individual assessment or medical advice.
+
+
+### Multi-user authentication, cloud data, quota controls and expanded exercise catalog (2026-11-27)
+
+- Created a separate Supabase project for Life & Health Planner in Singapore; it is not the Supabase project used by the learning website.
+- Added email/password authentication through Supabase Auth with persistent browser sessions. The browser receives only the project URL and publishable key; no service-role/secret key is sent to the client.
+- Added a sign-in/sign-up gate, password-reset request, account status check, sign-out, and a profile lookup. New profiles are members by default; the explicitly allowlisted initial administrator email is promoted by the database signup trigger.
+- Personal application state is stored in `public.user_app_data`, keyed by authenticated user ID and protected by RLS. First-login import asks before copying old local data; the original browser copy is retained. Cloud writes are scoped to the current authenticated account.
+- Added an admin panel backed by database RPCs for member listing, daily/monthly Gemini quota limits, enable/disable, and account suspension. Authorization is enforced in database functions, not by hiding UI controls.
+- The Gemini endpoint now validates the Supabase access token with Auth, reads the shared exercise catalog through the caller's authenticated context, reserves quota atomically before calling Gemini, and refunds the reservation if the provider fails. It does not trust a client-supplied user ID.
+- Added `public.exercise_catalog` with RLS and admin-only management. It is a shared reference catalog; personal plans and workout logs remain per-user.
+- Seeded 67 starter exercises across 11 equipment categories: bodyweight/home options, resistance bands, dumbbells, kettlebells, barbells, cable stations, selectorized machines, Smith machine, pull-up bars, and cardio machines. The first dataset contains 57 resistance exercises and 5 cardio entries; remaining entries include core and movement work.
+- Catalog records include Thai and English names, movement pattern, target muscles, equipment, difficulty, exercise type, setup, steps, breathing, common mistakes, cautions, progressions, regressions, and evidence notes. The 67-entry dataset is a starter library, not an exhaustive global catalog. Several entries have generic technique notes and are explicitly marked as not yet expert-reviewed; they must not be represented as exercise-specific research evidence.
+- The existing curated evidence library remains separate from the broad catalog. Only evidence source IDs actually present in the reviewed evidence file may be cited; an empty source list means no specific source citation is claimed for that exercise.
+- Vercel environment variables `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` were added for Production, Preview, and Development. `GEMINI_API_KEY` remains server-side.
+- Current verification: Supabase catalog table created with RLS and 67 rows verified by SQL; security advisor reviewed. Preview deployment was built from the working branch, but full browser-based signup/login, cross-user isolation, email confirmation, admin quota interaction, and live Gemini calls still require end-to-end verification before production release.
+- Important setup consideration: Supabase Auth email confirmation and password-reset redirects must allow the deployed site URL in Auth URL Configuration. Verify the Site URL and Redirect URLs before inviting other members.
