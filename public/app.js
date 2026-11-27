@@ -35,10 +35,10 @@
     version: 2, activities: [], timeLogs: [], meals: [], workouts: [], measurements: [], coachMessages: [], workoutPlans: [], readinessLogs: [],
     trainingProfile: { age: 22, sex: '', goal: 'เพิ่มกล้ามเนื้อและสร้างรูปร่าง', experience: 'มือใหม่', equipment: 'ไม่มีอุปกรณ์', daysPerWeek: 3, sessionMinutes: 40, limitations: '', preferences: '', shareWithGemini: true },
     targets: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    preferences: { timezone: 'Asia/Bangkok', weekStartsOn: 1, units: 'metric' }
+    preferences: { timezone: 'Asia/Bangkok', weekStartsOn: 1, units: 'metric', theme: 'system', fontScale: 'normal', contentWidth: 'standard', density: 'comfortable', reduceMotion: false }
   });
   function normalizeData(saved) {
-    return saved && saved.version === 2 ? { ...defaultData(), ...saved } : defaultData();
+    return saved && saved.version === 2 ? { ...defaultData(), ...saved, preferences: { ...defaultData().preferences, ...(saved.preferences||{}) }, targets: { ...defaultData().targets, ...(saved.targets||{}) }, trainingProfile: { ...defaultData().trainingProfile, ...(saved.trainingProfile||{}) } } : defaultData();
   }
   let data = defaultData();
   let page = 'overview';
@@ -69,7 +69,7 @@
     });
   }
   function nav() {
-    const items = [['overview','ภาพรวม','layout-dashboard'],['schedule','ตารางชีวิต','calendar-days'],['time','บันทึกเวลา','clock'],['exercise','ออกกำลังกาย','dumbbell'],['nutrition','โภชนาการ','utensils'],['body','ข้อมูลร่างกาย','activity'],['reports','รายงาน','chart-no-axes-combined'],['settings','ตั้งค่า','settings']];
+    const items = [['overview','ภาพรวม','layout-dashboard'],['schedule','ตารางชีวิต','calendar-days'],['time','บันทึกเวลา','clock'],['exercise','ออกกำลังกาย','dumbbell'],['nutrition','โภชนาการ','utensils'],['body','ข้อมูลร่างกาย','activity'],['reports','รายงาน','chart-no-axes-combined'],['account','บัญชีของฉัน','user-round'],['settings','ตั้งค่า','settings']];
     $('#nav').innerHTML = items.map(([id,label]) => '<button type="button" class="nav-item '+(page===id?'active':'')+'" data-page="'+id+'">'+label+'</button>').join('');
   }
   function header() {
@@ -315,9 +315,37 @@
       card('เวลาที่ใช้แยกตามหมวดหมู่',byCategory.length?byCategory.map(([name,value])=>'<div class="bar-row"><div><span>'+esc(name)+'</span><b>'+fmtHours(value)+'</b></div><div class="progress"><i style="width:'+(value/max*100)+'%"></i></div></div>').join(''):'<div class="empty-state">ยังไม่มีข้อมูลเวลาในช่วงนี้</div>')+
       card('โภชนาการในช่วงที่เลือก','<div class="summary-line"><span>พลังงานรวม</span><b>'+Math.round(totalCalories)+' kcal</b></div><div class="summary-line"><span>โปรตีนรวม</span><b>'+Math.round(foods.reduce((s,x)=>s+(Number(x.protein)||0),0))+' g</b></div><div class="summary-line"><span>จำนวนวันที่มีข้อมูลอาหาร</span><b>'+new Set(foods.map(x=>x.date)).size+' วัน</b></div><p class="muted small-text">รายงานนี้รวมเฉพาะรายการที่มีการบันทึก ไม่ถือว่าวันที่ไม่มีข้อมูลเป็นศูนย์</p>');
   }
+  function renderAccount() {
+    const user=window.LHPAuth.getUser()||{},profile=window.LHPAuth.getProfile()||{};
+    const measurements=(data.measurements||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const latest=measurements[0];
+    const created=user.created_at?new Date(user.created_at).toLocaleDateString('th-TH',{dateStyle:'long'}):'ไม่พบข้อมูล';
+    const workouts=(data.workouts||[]).length, meals=(data.meals||[]).length, activities=(data.activities||[]).length;
+    const historyRows=measurements.slice(0,5).map(x=>'<tr><td>'+fmtDate(x.date)+'</td><td>'+esc(x.weight)+' kg</td><td>'+(x.height?esc(x.height)+' cm':'—')+'</td><td>'+(x.waist?esc(x.waist)+' cm':'—')+'</td></tr>').join('');
+    return '<div class="page-title"><div><p class="eyebrow">YOUR ACCOUNT</p><h1>บัญชีของฉัน</h1><p class="muted">จัดการโปรไฟล์ ความปลอดภัย และดูประวัติข้อมูลของบัญชีนี้</p></div></div>'+
+      '<div class="stats-grid account-stats">'+stat('ข้อมูลร่างกาย',measurements.length+' รายการ',latest?'ล่าสุด '+fmtDate(latest.date):'ยังไม่มีข้อมูล')+stat('ประวัติการฝึก',workouts+' ครั้ง','บันทึกการออกกำลังกาย')+stat('อาหารที่บันทึก',meals+' รายการ','ข้อมูลโภชนาการของคุณ')+stat('กิจกรรมชีวิต',activities+' รายการ','ตารางและกิจกรรมที่บันทึก')+'</div>'+
+      card('โปรไฟล์บัญชี','<div class="account-identity"><div class="account-avatar">'+esc((profile.display_name||user.email||'U').trim().slice(0,1).toUpperCase())+'</div><div><b>'+esc(profile.display_name||'ยังไม่ได้ตั้งชื่อ')+'</b><small>'+esc(user.email||'')+'</small><small>สมาชิกตั้งแต่ '+created+' · '+(profile.role==='admin'?'ผู้ดูแลระบบ':'สมาชิก')+'</small></div></div><form id="account-profile-form" class="form-grid">'+formField('ชื่อที่แสดง','<input name="display_name" minlength="2" maxlength="60" required value="'+esc(profile.display_name||'')+'">')+'<div class="form-actions"><button class="primary-button">บันทึกชื่อโปรไฟล์</button></div></form><p class="muted small-text">อีเมลนี้ใช้เข้าสู่ระบบ หากต้องการเปลี่ยนอีเมลจะต้องมีขั้นตอนยืนยันแยกต่างหาก</p>')+
+      card('ความปลอดภัยและรหัสผ่าน','<form id="account-password-form" class="form-grid">'+formField('รหัสผ่านปัจจุบัน','<input type="password" name="current_password" autocomplete="current-password" required minlength="8">')+formField('รหัสผ่านใหม่','<input type="password" name="new_password" autocomplete="new-password" required minlength="8" maxlength="128">')+formField('ยืนยันรหัสผ่านใหม่','<input type="password" name="confirm_password" autocomplete="new-password" required minlength="8" maxlength="128">')+'<div class="form-actions"><button class="primary-button">เปลี่ยนรหัสผ่าน</button></div></form><p class="muted small-text">ต้องยืนยันรหัสผ่านปัจจุบันก่อนบันทึกรหัสผ่านใหม่</p>')+
+      card('ประวัติข้อมูลร่างกาย',latest?'<p class="muted small-text">ค่าล่าสุด: น้ำหนัก '+esc(latest.weight)+' kg'+(latest.height?' · ส่วนสูง '+esc(latest.height)+' cm':'')+'</p><div class="table-wrap"><table><thead><tr><th>วันที่</th><th>น้ำหนัก</th><th>ส่วนสูง</th><th>รอบเอว</th></tr></thead><tbody>'+historyRows+'</tbody></table></div><button class="secondary-button" type="button" data-go="body">ดูและแก้ไขข้อมูลร่างกายทั้งหมด</button>':'<p>ยังไม่มีประวัติข้อมูลร่างกาย เริ่มบันทึกน้ำหนัก ส่วนสูง และข้อมูลที่จำเป็นได้ที่หน้าข้อมูลร่างกาย</p><button class="secondary-button" type="button" data-go="body">ไปหน้าข้อมูลร่างกาย</button>')+
+      card('ประวัติการใช้งาน','<p class="muted small-text">รายการเข้าสู่ระบบและออกจากระบบล่าสุดของบัญชีนี้</p><div id="account-login-history" class="account-history">กำลังโหลดประวัติ…</div><button class="secondary-button" type="button" id="account-history-refresh">รีเฟรชประวัติ</button>')+
+      card('ข้อมูลและความคืบหน้าของคุณ','<div class="account-summary-grid"><div><b>'+activities+'</b><small>กิจกรรมชีวิต</small></div><div><b>'+workouts+'</b><small>การฝึก</small></div><div><b>'+meals+'</b><small>รายการอาหาร</small></div><div><b>'+(data.timeLogs||[]).length+'</b><small>บันทึกเวลา</small></div></div><p class="muted small-text">ข้อมูลร่างกาย ตารางชีวิต โภชนาการ และประวัติการฝึกเก็บแยกตามบัญชีของคุณ</p><div class="button-row"><button type="button" class="secondary-button" data-go="exercise">ประวัติการฝึก</button><button type="button" class="secondary-button" data-go="nutrition">ข้อมูลโภชนาการ</button><button type="button" class="secondary-button" data-go="reports">รายงานความคืบหน้า</button></div>');
+  }
   function renderSettings() {
     const oldKeys=['lhp_activities','lhp_logs','lhp_foods','lhp_body'];
-    return '<div class="page-title"><div><p class="eyebrow">PREFERENCES & DATA</p><h1>ตั้งค่า</h1><p class="muted">จัดการข้อมูลและการตั้งค่าพื้นฐานของเว็บ</p></div></div>'+
+    const p=data.preferences||{};
+    const selected=(key,value)=>p[key]===value?'selected':'';
+    const checked=key=>p[key]?'checked':'';
+    const preferencesForm='<form id="site-preferences-form" class="form-grid">'+
+      formField('ธีมเว็บไซต์','<select name="theme"><option value="system" '+selected('theme','system')+'>ตามการตั้งค่าอุปกรณ์</option><option value="light" '+selected('theme','light')+'>โหมดสว่าง</option><option value="dark" '+selected('theme','dark')+'>โหมดมืด</option></select>')+
+      formField('ขนาดตัวอักษร','<select name="fontScale"><option value="small" '+selected('fontScale','small')+'>เล็ก</option><option value="normal" '+selected('fontScale','normal')+'>ปกติ</option><option value="large" '+selected('fontScale','large')+'>ใหญ่</option></select>')+
+      formField('ความกว้างเนื้อหา','<select name="contentWidth"><option value="compact" '+selected('contentWidth','compact')+'>กะทัดรัด</option><option value="standard" '+selected('contentWidth','standard')+'>มาตรฐาน</option><option value="wide" '+selected('contentWidth','wide')+'>กว้าง</option></select>')+
+      formField('ความหนาแน่นของหน้าจอ','<select name="density"><option value="comfortable" '+selected('density','comfortable')+'>โปร่ง อ่านง่าย</option><option value="compact" '+selected('density','compact')+'>แสดงข้อมูลได้มากขึ้น</option></select>')+
+      formField('วันเริ่มต้นสัปดาห์','<select name="weekStartsOn"><option value="1" '+selected('weekStartsOn',1)+'>วันจันทร์</option><option value="0" '+selected('weekStartsOn',0)+'>วันอาทิตย์</option></select>')+
+      formField('หน่วยวัด','<select name="units"><option value="metric" '+selected('units','metric')+'>เมตริก (kg, cm)</option><option value="imperial" '+selected('units','imperial')+'>อิมพีเรียล (lb, in) · การแปลงค่าจะแสดงผลในรุ่นถัดไป</option></select>')+
+      '<label class="check-field"><input type="checkbox" name="reduceMotion" '+checked('reduceMotion')+'> ลดภาพเคลื่อนไหวและเอฟเฟกต์</label><div class="form-actions"><button class="primary-button">บันทึกการตั้งค่าเว็บไซต์</button><button class="secondary-button" type="button" id="reset-site-preferences">คืนค่าตั้งต้น</button></div></form>';
+
+    return '<div class="page-title"><div><p class="eyebrow">PREFERENCES & DATA</p><h1>ตั้งค่าเว็บไซต์</h1><p class="muted">ปรับหน้าตาและวิธีแสดงผลให้เหมาะกับอุปกรณ์ของคุณ</p></div></div>'+
+      card('การแสดงผลเว็บไซต์',preferencesForm)+
       card('เป้าหมายโภชนาการ (ตั้งค่าเอง)','<form id="targets-form" class="form-grid">'+formField('พลังงาน (kcal / วัน)','<input type="number" name="calories" min="0" value="'+data.targets.calories+'">')+formField('โปรตีน (g / วัน)','<input type="number" name="protein" min="0" value="'+data.targets.protein+'">')+formField('คาร์โบไฮเดรต (g / วัน)','<input type="number" name="carbs" min="0" value="'+data.targets.carbs+'">')+formField('ไขมัน (g / วัน)','<input type="number" name="fat" min="0" value="'+data.targets.fat+'">')+'<div class="form-actions"><button class="primary-button">บันทึกเป้าหมาย</button></div></form><p class="muted small-text">ค่าเริ่มต้นเว้นว่างไว้ เพราะเป้าหมายควรเหมาะกับแต่ละบุคคล</p>')+
       card('สำรองและย้ายข้อมูล','<p>ข้อมูลใหม่เก็บไว้ใน LocalStorage ของเบราว์เซอร์และอุปกรณ์นี้เท่านั้น</p><div class="button-row"><button class="primary-button" id="export-data">ส่งออกข้อมูล JSON</button><label class="secondary-button file-button">นำเข้าไฟล์ JSON<input type="file" id="import-data" accept="application/json" hidden></label></div><p class="muted small-text">การนำเข้าจะรวมรายการจากไฟล์เข้ากับข้อมูลปัจจุบัน ไม่ลบข้อมูลเดิม</p>')+
       card('ข้อมูลจากต้นแบบเดิม',legacyCount?'<p>พบข้อมูลเดิม '+legacyCount+' รายการในคีย์จัดเก็บเก่า ข้อมูลเหล่านี้ยังคงอยู่ ไม่ได้ถูกลบหรือเขียนทับ</p><p class="muted small-text">ยังไม่นำเข้าข้อมูลอัตโนมัติ เพราะบันทึกเดิมบางรายการไม่มีวันที่จริง การกำหนดวันที่แทนอาจทำให้รายงานคลาดเคลื่อน</p>':'<p>ไม่พบข้อมูลจากต้นแบบเดิม')+
@@ -325,7 +353,7 @@
   }
   function render() {
     nav(); header();
-    const pages={overview:renderOverview,schedule:renderSchedule,time:renderTime,exercise:renderExercise,nutrition:renderNutrition,body:renderBody,reports:renderReports,settings:renderSettings};
+    const pages={overview:renderOverview,schedule:renderSchedule,time:renderTime,exercise:renderExercise,nutrition:renderNutrition,body:renderBody,reports:renderReports,account:renderAccount,settings:renderSettings};
     $('#view').innerHTML=(pages[page]||renderOverview)();
     if(page==='exercise') loadExerciseMedia($('#view'));
     if (page==='schedule') bindSchedule();
@@ -335,6 +363,7 @@
     if (page==='body') bindBody();
     if (page==='reports') bindReports();
     if (page==='settings') bindSettings();
+    if (page==='account') { bindAccount(); loadAccountHistory(); }
     if (page==='overview') $('#overview-date')?.addEventListener('change',e=>{selectedDate=e.target.value;render()});
   }
   function bindSchedule() {
@@ -392,13 +421,34 @@
     $('#report-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
     $$('[data-period]').forEach(b=>b.addEventListener('click',()=>{reportPeriod=b.dataset.period;render()}));
   }
+  function applySitePreferences() {
+    const p=data.preferences||{};
+    document.documentElement.dataset.theme=['light','dark','system'].includes(p.theme)?p.theme:'system';
+    document.documentElement.dataset.fontScale=['small','normal','large'].includes(p.fontScale)?p.fontScale:'normal';
+    const shell=$('.app-shell');
+    if(shell){shell.dataset.width=['compact','standard','wide'].includes(p.contentWidth)?p.contentWidth:'standard';shell.dataset.density=p.density==='compact'?'compact':'comfortable';}
+    document.body.classList.toggle('lhp-reduce-motion',!!p.reduceMotion);
+  }
+  function bindAccount() {
+    $('#account-profile-form')?.addEventListener('submit',async e=>{e.preventDefault();const button=e.currentTarget.querySelector('button'),name=new FormData(e.currentTarget).get('display_name');button.disabled=true;try{await window.LHPAuth.updateDisplayName(name);notice='บันทึกชื่อโปรไฟล์แล้ว';render();}catch(error){alert('บันทึกโปรไฟล์ไม่สำเร็จ: '+error.message);button.disabled=false;}});
+    $('#account-password-form')?.addEventListener('submit',async e=>{e.preventDefault();const f=new FormData(e.currentTarget),current=String(f.get('current_password')||''),next=String(f.get('new_password')||''),confirmPassword=String(f.get('confirm_password')||'');if(next.length<8)return alert('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร');if(next!==confirmPassword)return alert('รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน');if(next===current)return alert('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม');const button=e.currentTarget.querySelector('button');button.disabled=true;try{await window.LHPAuth.changePassword(current,next);alert('เปลี่ยนรหัสผ่านสำเร็จ');e.currentTarget.reset();}catch(error){alert('เปลี่ยนรหัสผ่านไม่สำเร็จ: '+error.message);}finally{button.disabled=false;}});
+    $('#account-history-refresh')?.addEventListener('click',loadAccountHistory);
+  }
+  async function loadAccountHistory() {
+    const target=$('#account-login-history');if(!target||page!=='account')return;
+    target.textContent='กำลังโหลดประวัติ…';
+    try{const rows=await window.LHPAuth.getLoginHistory(10);target.innerHTML=rows.length?rows.map(x=>'<div class="account-history-row"><b>'+(x.event_type==='sign_in'?'เข้าสู่ระบบ':'ออกจากระบบ')+'</b><span>'+new Date(x.created_at).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})+'</span><small>'+esc(x.user_agent||'ไม่ทราบอุปกรณ์')+'</small></div>').join(''):'<p class="muted">ยังไม่มีประวัติการเข้าสู่ระบบ</p>';}catch(error){target.textContent='โหลดประวัติไม่สำเร็จ: '+error.message;}
+  }
   function bindSettings() {
+    $('#site-preferences-form')?.addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget);data.preferences={...data.preferences,theme:f.get('theme'),fontScale:f.get('fontScale'),contentWidth:f.get('contentWidth'),density:f.get('density'),weekStartsOn:Number(f.get('weekStartsOn')),units:f.get('units'),reduceMotion:f.get('reduceMotion')==='on'};applySitePreferences();save('บันทึกการตั้งค่าเว็บไซต์แล้ว')});
+    $('#reset-site-preferences')?.addEventListener('click',()=>{if(!confirm('คืนค่าการแสดงผลเว็บไซต์เป็นค่าเริ่มต้นหรือไม่?'))return;const base=defaultData().preferences;data.preferences={...data.preferences,...base};applySitePreferences();render();save('คืนค่าการตั้งค่าเริ่มต้นแล้ว')});
     $('#targets-form').addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget);data.targets={calories:Number(f.get('calories'))||0,protein:Number(f.get('protein'))||0,carbs:Number(f.get('carbs'))||0,fat:Number(f.get('fat'))||0};save('บันทึกเป้าหมายแล้ว')});
     $('#export-data').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='life-health-planner-'+today()+'.json';a.click();URL.revokeObjectURL(url)});
     $('#import-data').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text());if(parsed.version!==2||!Array.isArray(parsed.activities)||!Array.isArray(parsed.timeLogs)||!Array.isArray(parsed.meals)||!Array.isArray(parsed.workouts)||!Array.isArray(parsed.measurements))throw new Error('รูปแบบไฟล์ไม่ตรงกับข้อมูลของ Life & Health Planner');for(const key of ['activities','timeLogs','meals','workouts','measurements','readinessLogs'])data[key].push(...(Array.isArray(parsed[key])?parsed[key]:[]).map(x=>({...x,id:uid()})));save('นำเข้าข้อมูลแล้ว');}catch(err){alert('นำเข้าข้อมูลไม่สำเร็จ: '+err.message)}e.target.value=''});
     $('#clear-data').addEventListener('click',()=>{if(confirm('ลบข้อมูลใหม่ทั้งหมดในเว็บนี้หรือไม่? การดำเนินการย้อนกลับไม่ได้ หากต้องการเก็บข้อมูลให้ส่งออกก่อน')){data=defaultData();save('ลบข้อมูลในเว็บนี้แล้ว')}});
   }
   $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-page]');if(b){page=b.dataset.page;notice='';render()}});
+  window.addEventListener('lhp:open-account',()=>{page='account';notice='';render();});
   $('#view').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){page=b.dataset.go;render()}});
   $('#global-date').addEventListener('change',e=>{selectedDate=e.target.value;render()});
   $('#global-date').value=selectedDate;
@@ -408,6 +458,7 @@
       if (!window.LHPAuth.getUser()) await window.LHPAuth.waitForUser();
       const loaded = await window.LHPAuth.loadData(KEY);
       data = normalizeData(loaded.data);
+      applySitePreferences();
       notice = loaded.migrated ? 'นำเข้าข้อมูลเดิมเข้าบัญชีนี้แล้ว (สำเนาต้นฉบับยังอยู่ในอุปกรณ์)' : '';
       render();
     } catch (error) {
