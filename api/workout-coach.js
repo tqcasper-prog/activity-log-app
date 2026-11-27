@@ -253,10 +253,24 @@ module.exports = async function workoutCoach(req,res) {
       const retryDelay=900*(2**attempt)+Math.floor(Math.random()*350);
       await new Promise(resolve=>setTimeout(resolve,retryDelay));
     }
+    if(!upstream.ok&&upstream.status===503){
+      // Gemini 3.8 Flash may be temporarily overloaded. Try the Free-tier Flash-Lite model once.
+      const fallbackModel=process.env.GEMINI_FALLBACK_MODEL||"gemini-3.5-flash-lite";
+      const fallbackBody=JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
+        generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000}});
+      try{
+        upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(fallbackModel)+":generateContent",{
+          method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:fallbackBody
+        });
+        result=await upstream.json().catch(()=>({}));
+      }catch(fallbackError){
+        result={error:{message:"Gemini fallback request failed"}};
+      }
+    }
     if(!upstream.ok) {
       await refundQuota();
       const detail=result?.error?.message||"Gemini API ไม่สามารถตอบคำขอได้";
-      if(upstream.status===503) return json(res,503,{error:"ขณะนี้ Gemini มีผู้ใช้งานหนาแน่นชั่วคราว ระบบลองเชื่อมต่อซ้ำให้อัตโนมัติแล้วแต่ยังไม่สำเร็จ โควต้าของคุณได้รับคืนแล้ว กรุณาลองใหม่ในอีกสักครู่"});
+      if(upstream.status===503) return json(res,503,{error:"ขณะนี้ Gemini ทั้งรุ่นหลักและรุ่นสำรองมีผู้ใช้งานหนาแน่นชั่วคราว ระบบคืนโควต้าของคุณแล้ว กรุณาลองใหม่ภายหลัง"});
       if(upstream.status===429) return json(res,429,{error:"Gemini Free Tier ถึงขีดจำกัดคำขอชั่วคราว กรุณารอสักครู่แล้วลองใหม่ โควต้าสมาชิกในเว็บไซต์ได้รับคืนแล้ว"});
       return json(res,502,{error:detail.slice(0,220)});
     }
