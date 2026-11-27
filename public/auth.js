@@ -92,6 +92,20 @@
     if(error) throw error;
     message('ส่งลิงก์ตั้งรหัสผ่านไปยังอีเมลแล้ว หากไม่พบให้ตรวจสอบจดหมายขยะ',true);
   }
+  function showRecoveryForm() {
+    const gate=$('#lhp-auth-gate');if(!gate)return;
+    gate.innerHTML='<section class="lhp-auth-card"><div class="lhp-auth-brand">LHP</div><h1>ตั้งรหัสผ่านใหม่</h1><p class="lhp-auth-muted">กำหนดรหัสผ่านใหม่สำหรับบัญชีของคุณ</p><form id="lhp-recovery-form"><label>รหัสผ่านใหม่<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><label>ยืนยันรหัสผ่านใหม่<input name="confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" required></label><button class="lhp-auth-primary" type="submit">บันทึกรหัสผ่านใหม่</button></form><p id="lhp-auth-message" role="status" aria-live="polite"></p></section>';
+    $('#lhp-recovery-form').addEventListener('submit',async event=>{
+      event.preventDefault();const form=new FormData(event.currentTarget),password=String(form.get('password')||''),confirmPassword=String(form.get('confirm')||'');
+      if(password.length<8){message('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');return;}
+      if(password!==confirmPassword){message('รหัสผ่านทั้งสองช่องไม่ตรงกัน');return;}
+      const button=event.currentTarget.querySelector('button');button.disabled=true;message('กำลังบันทึกรหัสผ่าน…',true);
+      const {error}=await client.auth.updateUser({password});
+      if(error){message(error.message);button.disabled=false;return;}
+      message('เปลี่ยนรหัสผ่านสำเร็จ กำลังกลับไปหน้าเข้าสู่ระบบ',true);
+      await client.auth.signOut();location.hash='';location.reload();
+    });
+  }
   function bindAuthForm() {
     $('#lhp-auth-form')?.addEventListener('submit',async e=>{
       e.preventDefault(); const form=new FormData(e.currentTarget);
@@ -116,7 +130,7 @@
       $('#lhp-toggle-password').setAttribute('aria-pressed',String(show));
       $('#lhp-toggle-password').setAttribute('aria-label',show?'ซ่อนรหัสผ่าน':'แสดงรหัสผ่าน');
     });
-    $('#lhp-signup')?.addEventListener('click',()=>{$('#lhp-name-label').hidden=false;$('#lhp-name-label input').required=true;},{once:true});
+    
     $('#lhp-forgot')?.addEventListener('click',async()=>{
       const email=String(new FormData($('#lhp-auth-form')).get('email')||'').trim().toLowerCase();
       try{await forgot(email);}catch(error){message(error.message||'ส่งลิงก์ไม่สำเร็จ');}
@@ -181,9 +195,12 @@
       const config=await response.json();
       if(!response.ok||!config.url||!config.publishableKey)throw new Error(config.error||'ยังไม่ได้ตั้งค่า Supabase ในระบบ');
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js');
+      const remember=$('#lhp-remember');
+      if(remember) remember.checked=localStorage.getItem('lhp_remember_login')!=='false';
+      remember?.addEventListener('change',()=>localStorage.setItem('lhp_remember_login',String(remember.checked)));
       const storage={
-        getItem:key=>($('#lhp-remember')?.checked?localStorage:sessionStorage).getItem(key),
-        setItem:(key,value)=>($('#lhp-remember')?.checked?localStorage:sessionStorage).setItem(key,value),
+        getItem:key=>(remember?.checked?localStorage:sessionStorage).getItem(key),
+        setItem:(key,value)=>(remember?.checked?localStorage:sessionStorage).setItem(key,value),
         removeItem:key=>{localStorage.removeItem(key);sessionStorage.removeItem(key);}
       };
       client=window.supabase.createClient(config.url,config.publishableKey,{auth:{storage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -193,6 +210,7 @@
       if(data.session)await setUser(data.session.user);else setUser(null);
       client.auth.onAuthStateChange(async(event,session)=>{
         if(event==='SIGNED_IN'&&session?.user){try{await setUser(session.user);}catch(error){message(error.message);}}
+        if(event==='PASSWORD_RECOVERY'){showRecoveryForm();}
         if(event==='SIGNED_OUT'){currentUser=null;profile=null;}
       });
       resolveReady({client,user:currentUser,profile});
