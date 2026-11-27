@@ -160,13 +160,25 @@
     });
   }
 
+  function renderEvidenceLinks(sources,label='แหล่งอ้างอิง') {
+    if(!Array.isArray(sources)||!sources.length) return '';
+    const links=sources.map(source=>'<li><a href="'+esc(source.url)+'" target="_blank" rel="noopener noreferrer">'+esc(source.title)+' ('+esc(source.year)+')</a> · '+esc(source.organization)+'</li>').join('');
+    return '<div class="evidence-links"><b>'+esc(label)+'</b><ul>'+links+'</ul></div>';
+  }
+  function renderEvidencePanel(plan) {
+    const summary=plan?.evidenceSummary?'<p>'+esc(plan.evidenceSummary)+'</p>':'';
+    const links=renderEvidenceLinks(plan?.evidence,'หลักฐานระดับการวางแผน');
+    if(!summary&&!links) return '';
+    return '<section class="evidence-panel"><b>ฐานความรู้ที่ใช้ประกอบแผน</b>'+summary+links+'<small>แหล่งอ้างอิงสนับสนุนหลักการหรือคำแนะนำตามขอบเขตที่ระบุ ไม่ได้ยืนยันว่าทุกท่าจะเหมาะกับทุกคน</small></section>';
+  }
   function renderPlanTable(plan) {
-    if(plan.restDay) return '<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>';
+    const evidencePanel=renderEvidencePanel(plan);
+    if(plan.restDay) return '<div class="notice subtle">วันนี้เป็นวันพักหรือฟื้นตัว</div>'+evidencePanel;
     const rows=(plan.items||[]).map((item,i)=>{
-      const details='<div class="plan-detail-layout">'+exerciseDiagram(item)+'<div class="exercise-media" data-exercise-media="'+esc(item.exercise)+'"><span class="muted small-text">กำลังค้นหาภาพและคลิปประกอบ…</span></div><div class="exercise-instructions"><p><b>เตรียมท่า:</b> '+esc(item.setup||'จัดท่าให้มั่นคงและเคลื่อนไหวในช่วงที่ควบคุมได้')+'</p><p><b>ขั้นตอน:</b></p><ol>'+((item.steps||[]).map(step=>'<li>'+esc(step)+'</li>').join('')||'<li>'+esc(item.note||'ทำช้า ๆ และควบคุมการเคลื่อนไหว')+'</li>')+'</ol><p><b>การหายใจ:</b> '+esc(item.breathing||'หายใจต่อเนื่อง ไม่กลั้นหายใจ')+'</p><p><b>ข้อผิดพลาดที่พบบ่อย:</b> '+esc(item.commonMistakes||'อย่ารีบทำหรือฝืนช่วงการเคลื่อนไหว')+'</p><p><b>ข้อควรระวัง:</b> '+esc(item.caution||item.note||'หยุดทันทีหากเจ็บผิดปกติ')+'</p></div></div>';
-      return '<tr><td class="plan-index">'+(i+1)+'</td><td><b>'+esc(item.exercise)+'</b></td><td>'+esc(item.targetMuscles||'—')+'</td><td>'+esc(item.sets)+'</td><td>'+esc(item.reps)+'</td><td>'+esc(item.restSeconds)+' วินาที</td></tr><tr class="instruction-row"><td colspan="6"><details><summary>ดูวิธีทำ รูปภาพ และวิดีโอประกอบ</summary>'+details+'</details></td></tr>';
+      const details='<div class="plan-detail-layout">'+exerciseDiagram(item)+'<div class="exercise-media" data-exercise-media="'+esc(item.exercise)+'"><span class="muted small-text">กำลังค้นหาภาพและคลิปประกอบ…</span></div><div class="exercise-instructions"><p><b>เหตุผลที่เลือก:</b> '+esc(item.rationale||'เลือกจากความเหมาะสมกับระดับและอุปกรณ์ที่ระบุ')+'</p><p><b>เตรียมท่า:</b> '+esc(item.setup||'จัดท่าให้มั่นคงและเคลื่อนไหวในช่วงที่ควบคุมได้')+'</p><p><b>ขั้นตอน:</b></p><ol>'+((item.steps||[]).map(step=>'<li>'+esc(step)+'</li>').join('')||'<li>'+esc(item.note||'ทำช้า ๆ และควบคุมการเคลื่อนไหว')+'</li>')+'</ol><p><b>การหายใจ:</b> '+esc(item.breathing||'หายใจต่อเนื่อง ไม่กลั้นหายใจ')+'</p><p><b>ข้อผิดพลาดที่พบบ่อย:</b> '+esc(item.commonMistakes||'อย่ารีบทำหรือฝืนช่วงการเคลื่อนไหว')+'</p><p><b>ข้อควรระวัง:</b> '+esc(item.caution||item.note||'หยุดทันทีหากเจ็บผิดปกติ')+'</p>'+renderEvidenceLinks(item.evidence,'หลักฐาน/คู่มือที่เกี่ยวข้องกับท่า')+'</div></div>';
+      return '<tr><td class="plan-index">'+(i+1)+'</td><td><b>'+esc(item.exercise)+'</b></td><td>'+esc(item.targetMuscles||'—')+'</td><td>'+esc(item.sets)+'</td><td>'+esc(item.reps)+'</td><td>'+esc(item.restSeconds)+' วินาที</td></tr><tr class="instruction-row"><td colspan="6"><details><summary>ดูเหตุผล วิธีทำ รูปภาพ และแหล่งอ้างอิง</summary>'+details+'</details></td></tr>';
     }).join('');
-    return '<div class="table-scroll"><table class="workout-plan-table"><thead><tr><th>ลำดับ</th><th>ท่าออกกำลังกาย</th><th>กล้ามเนื้อเป้าหมาย</th><th>เซ็ต</th><th>ครั้ง / เซ็ต</th><th>เวลาพัก</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    return evidencePanel+'<div class="table-scroll"><table class="workout-plan-table"><thead><tr><th>ลำดับ</th><th>ท่าออกกำลังกาย</th><th>กล้ามเนื้อเป้าหมาย</th><th>เซ็ต</th><th>ครั้ง / เซ็ต</th><th>เวลาพัก</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
   function renderCoachConversation() {
     const messages=(data.coachMessages||[]).slice(-8);
@@ -175,7 +187,7 @@
       if(message.role==='user') return '<div class="coach-message user"><b>คุณ</b><p>'+esc(message.text)+'</p></div>';
       const result=message.result||{}, plan=result.hasPlan?result.plan:null;
       const planMarkup=plan?'<div class="ai-plan"><b>'+esc(plan.title||'แผนฝึก')+'</b><p>'+esc(plan.reason||'')+'</p>'+renderPlanTable(plan)+'<button type="button" class="secondary-button" data-apply-plan="'+(data.coachMessages||[]).indexOf(message)+'">ยืนยันใช้แผนนี้</button></div>':'';
-      return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b><p>'+esc(result.reply||'')+'</p>'+planMarkup+'</div>';
+      return '<div class="coach-message assistant"><b>Gemini · โค้ชออกกำลังกาย</b><p>'+esc(result.reply||'')+'</p>'+renderEvidenceLinks(result.evidence,'แหล่งอ้างอิงประกอบคำตอบ')+planMarkup+'</div>';
     }).join('');
   }
   async function askWorkoutCoach(text) {
