@@ -425,6 +425,7 @@
     document.documentElement.dataset.fontScale=['small','normal','large'].includes(p.fontScale)?p.fontScale:'normal';
     const shell=$('.app-shell');
     if(shell){shell.dataset.width=['compact','standard','wide'].includes(p.contentWidth)?p.contentWidth:'standard';shell.dataset.density=p.density==='compact'?'compact':'comfortable';}
+    document.body.classList.toggle('lhp-compact',p.density==='compact');
     document.body.classList.toggle('lhp-reduce-motion',!!p.reduceMotion);
   }
   function bindAccount() {
