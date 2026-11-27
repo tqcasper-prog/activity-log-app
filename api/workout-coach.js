@@ -41,7 +41,7 @@ module.exports = async function workoutCoach(req,res) {
   const supabaseUrl=process.env.SUPABASE_URL, publishableKey=process.env.SUPABASE_PUBLISHABLE_KEY;
   if(!supabaseUrl||!publishableKey) return json(res,503,{error:"ยังไม่ได้ตั้งค่า Supabase สำหรับระบบสมาชิก"});
   const authorization=String(req.headers.authorization||"");
-  const token=authorization.match(/^Bearer\\s+(.+)$/i)?.[1];
+  const token=authorization.match(/^Bearer\s+(.+)$/i)?.[1];
   if(!token) return json(res,401,{error:"กรุณาเข้าสู่ระบบก่อนใช้โค้ชออกกำลังกาย"});
   let authenticatedUser;
   try {
