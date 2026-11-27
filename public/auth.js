@@ -244,9 +244,25 @@
       const config=await response.json();
       if(!response.ok||!config.url||!config.publishableKey)throw new Error(config.error||'ยังไม่ได้ตั้งค่า Supabase ในระบบ');
       await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0/dist/umd/supabase.js');
-      // Use Supabase's default persistent localStorage adapter so sessions survive browser restarts.
-      // Never store raw passwords; Supabase stores and refreshes the session tokens securely.
-      client=window.supabase.createClient(config.url,config.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      // Explicitly pin the browser session to the same project-scoped localStorage key on every visit.
+      // This is the Supabase v2 default key, retained so existing sessions are not discarded.
+      // Never store raw passwords; only Supabase-managed session tokens are persisted.
+      const projectRef=new URL(config.url).hostname.split('.')[0];
+      const authStorageKey='sb-'+projectRef+'-auth-token';
+      let authStorage;
+      try {
+        authStorage=window.localStorage;
+        const probe=authStorageKey+'-availability-check';
+        authStorage.setItem(probe,'1');
+        if(authStorage.getItem(probe)!=='1')throw new Error('localStorage อ่านกลับไม่ได้');
+        authStorage.removeItem(probe);
+      } catch(storageError) {
+        throw new Error('เบราว์เซอร์ไม่อนุญาตให้จดจำการเข้าสู่ระบบ กรุณาเปิดใช้งานการจัดเก็บข้อมูลเว็บไซต์และอย่าใช้โหมดไม่ระบุตัวตน');
+      }
+      client=window.supabase.createClient(config.url,config.publishableKey,{auth:{
+        persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,
+        storage:authStorage,storageKey:authStorageKey
+      }});
       bindAuthForm();
       const {data,error}=await client.auth.getSession();
       if(error)throw error;
