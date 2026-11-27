@@ -94,3 +94,6 @@
 .workspace-status.saved{background:#e3f5e9;color:#21683a}
 .ai-workspace-empty{padding:18px;border:1px dashed var(--border);border-radius:12px;color:var(--muted);font-size:13px}
 .ai-workspace-card>.primary-button{margin-top:14px}
+
+.check-field{display:flex!important;align-items:flex-start;gap:9px;grid-column:1/-1;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:12px;line-height:1.6}.check-field input{margin-top:3px;flex:0 0 auto}
+.history-entry{border-bottom:1px solid var(--line);padding:5px 0}.history-entry:last-child{border-bottom:0}.history-entry .list-row{align-items:flex-start}
