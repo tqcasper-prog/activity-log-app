@@ -79,6 +79,7 @@
     $('#lhp-account-open')?.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('lhp:open-account')));
     $('#lhp-login-history-open')?.addEventListener('click',openLoginHistory);
     $('#lhp-admin-open')?.addEventListener('click',openAdmin);
+    document.addEventListener('click',event=>{const button=event.target.closest('[data-open-admin]');if(button){event.preventDefault();openAdmin();}});
   }
   async function signup(email,password,displayName) {
     const {data,error}=await client.auth.signUp({email,password,options:{emailRedirectTo:location.origin,data:{display_name:displayName}}});
