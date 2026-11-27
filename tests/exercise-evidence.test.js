@@ -7,7 +7,7 @@ test('evidence library has a version, review date, and unique source identifiers
   assert.match(evidence.reviewedOn, /^\d{4}-\d{2}-\d{2}$/);
   const ids = evidence.sources.map(source => source.id);
   assert.equal(new Set(ids).size, ids.length);
-  assert.ok(evidence.sources.every(source => source.title && source.organization && source.year && /^https:\\/\\//.test(source.url)));
+  assert.ok(evidence.sources.every(source => source.title && source.organization && source.year && source.url.startsWith('https://')));
 });
 
 test('every principle and exercise cites only known evidence sources', () => {
