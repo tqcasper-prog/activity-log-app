@@ -216,7 +216,7 @@ module.exports = async function workoutCoach(req,res) {
   }
   const refundQuota=async()=>{try{await fetch(supabaseUrl+"/rest/v1/rpc/refund_gemini_quota",{method:"POST",headers:{apikey:publishableKey,Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({p_request_id:requestId})});}catch{}};
   const includeExerciseEvidence=topics.some(topic=>topic!=="nutrition");
-  const includeNutritionEvidence=topics.includes("nutrition");
+  const includeNutritionEvidence=topics.includes("nutrition")||topics.includes("exercise_plan");
   const relevantPrinciples=evidenceLibrary.principles.filter(principle=>principle.domain==="nutrition"?includeNutritionEvidence:includeExerciseEvidence);
   const usedSourceIds=new Set(relevantPrinciples.flatMap(principle=>principle.sourceIds||[]));
   const evidenceContext={
