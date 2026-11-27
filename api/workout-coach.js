@@ -239,17 +239,25 @@ module.exports = async function workoutCoach(req,res) {
 ตอบ JSON ตาม schema เท่านั้น ใส่ evidenceIds ในระดับคำตอบ แผน และท่า โดยเลือกเฉพาะ ID ที่ได้รับ`;
   const userContext={date,currentMessage:message||"ช่วยประเมินจากประวัติการฝึกและข้อมูลร่างกายที่บันทึกไว้สำหรับวันนี้",topicCategories:topics.map(topic=>({id:topic,label:TOPIC_LABELS[topic]})),trainingProfile:profile,bodyMeasurementHistory:bodyHistory,dailyReadinessHistory:readinessHistory,recentTrainingHistory:workouts,recentNutritionHistory:nutritionHistory,nutritionTargets,previousConversation:conversation,currentAcceptedPlan:existingPlan,evidenceBase:evidenceContext};
   try {
-    const model=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite";
-    const upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
-      method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},
-      body:JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
-        generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000,thinkingConfig:{thinkingLevel:"MINIMAL"}}})
-    });
-    const result=await upstream.json().catch(()=>({}));
+    const model=process.env.GEMINI_MODEL||"gemini-3.8-flash";
+    const requestBody=JSON.stringify({systemInstruction:{parts:[{text:systemInstruction}]},contents:[{role:"user",parts:[{text:JSON.stringify(userContext)}]}],
+      generationConfig:{responseMimeType:"application/json",responseSchema,temperature:0.2,maxOutputTokens:3000,thinkingConfig:{thinkingLevel:"MINIMAL"}}});
+    let upstream,result;
+    for(let attempt=0;attempt<3;attempt++){
+      upstream=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+        method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":apiKey},body:requestBody
+      });
+      result=await upstream.json().catch(()=>({}));
+      if(upstream.ok||upstream.status!==503||attempt===2) break;
+      const retryDelay=900*(2**attempt)+Math.floor(Math.random()*350);
+      await new Promise(resolve=>setTimeout(resolve,retryDelay));
+    }
     if(!upstream.ok) {
       await refundQuota();
       const detail=result?.error?.message||"Gemini API ไม่สามารถตอบคำขอได้";
-      return json(res,upstream.status===429?429:502,{error:upstream.status===429?"โควต้าหรือจำนวนคำขอ Gemini Free Tier ถึงขีดจำกัดแล้ว กรุณาลองใหม่ภายหลัง":detail.slice(0,220)});
+      if(upstream.status===503) return json(res,503,{error:"ขณะนี้ Gemini มีผู้ใช้งานหนาแน่นชั่วคราว ระบบลองเชื่อมต่อซ้ำให้อัตโนมัติแล้วแต่ยังไม่สำเร็จ โควต้าของคุณได้รับคืนแล้ว กรุณาลองใหม่ในอีกสักครู่"});
+      if(upstream.status===429) return json(res,429,{error:"Gemini Free Tier ถึงขีดจำกัดคำขอชั่วคราว กรุณารอสักครู่แล้วลองใหม่ โควต้าสมาชิกในเว็บไซต์ได้รับคืนแล้ว"});
+      return json(res,502,{error:detail.slice(0,220)});
     }
     const candidate=result?.candidates?.[0];
     const raw=candidate?.content?.parts?.map(part=>part.text||"").join("").trim();
